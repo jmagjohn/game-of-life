@@ -1,0 +1,1758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LIFE-EVOLVE // Conway + Genetic Algorithm</title>
+<style>
+:root {
+  --ac:     #39ff14;
+  --ac-dim: #2a8c0a;
+  --bg:     #0d0d0d;
+}
+
+  /* ===== RESET & BASE ===== */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--ac);
+    font-family: 'Courier New', Courier, monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100dvh;
+    padding: 10px 14px 10px;
+    gap: 8px;
+    overflow: hidden;
+  }
+
+  /* ===== HEADER ===== */
+  header {
+    text-align: center;
+    letter-spacing: 0.2em;
+  }
+  header h1 {
+    font-size: 1.3rem;
+    text-shadow: 0 0 12px var(--ac), 0 0 30px color-mix(in srgb, var(--ac) 53%, transparent);
+    color: var(--ac);
+  }
+  header p {
+    font-size: 0.6rem;
+    color: var(--ac-dim);
+    margin-top: 2px;
+    letter-spacing: 0.15em;
+  }
+
+  /* ===== MAIN LAYOUT ===== */
+  .layout {
+    display: flex;
+    gap: 16px;
+    align-items: stretch;   /* both children fill full height */
+    flex-wrap: nowrap;
+    justify-content: center;
+    flex: 1;
+    width: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  /* ===== GRID CANVAS ===== */
+  .grid-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    align-self: stretch;   /* stretch to full layout height */
+  }
+  /* Canvas lives inside this — it fills the leftover vertical space */
+  #canvas-area {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    position: relative;
+  }
+  #grid-canvas {
+    display: block;
+    border: 1px solid color-mix(in srgb, var(--ac) 33%, transparent);
+    box-shadow: 0 0 18px color-mix(in srgb, var(--ac) 20%, transparent), inset 0 0 18px var(--bg);
+    background: var(--bg);
+    cursor: crosshair;
+    flex-shrink: 0;
+  }
+  #phase-label {
+    font-size: 0.62rem;
+    color: var(--ac-dim);
+    text-align: center;
+    letter-spacing: 0.12em;
+    min-height: 1em;
+  }
+
+  /* ===== SIDE PANEL ===== */
+  .panel {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 260px;
+    flex-shrink: 0;
+    overflow-y: auto;
+    max-height: 100%;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--ac-dim) 40%, transparent) #050505;
+  }
+
+  /* ===== STATS BOX ===== */
+  .stats-box {
+    border: 1px solid color-mix(in srgb, var(--ac-dim) 30%, transparent);
+    padding: 10px 12px;
+    background: #050505;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .stats-box .title {
+    font-size: 0.6rem;
+    color: var(--ac-dim);
+    letter-spacing: 0.2em;
+    margin-bottom: 6px;
+  }
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    border-bottom: 1px solid #111;
+    font-size: 0.75rem;
+  }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-row .label { color: var(--ac-dim); }
+  .stat-row .value {
+    color: var(--ac);
+    text-shadow: 0 0 6px var(--ac);
+    font-size: 0.82rem;
+    min-width: 48px;
+    text-align: right;
+  }
+  .stat-row .value.highlight {
+    color: #ffc220;
+    text-shadow: 0 0 8px #ffc22088;
+  }
+
+  /* ===== BUTTONS ===== */
+  .btn-group {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  button {
+    background: #050505;
+    color: var(--ac);
+    border: 1px solid color-mix(in srgb, var(--ac) 40%, transparent);
+    padding: 9px 14px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.15em;
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s, border-color 0.15s;
+    text-align: left;
+    width: 100%;
+  }
+  button:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--ac) 8%, var(--bg));
+    border-color: var(--ac);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--ac) 27%, transparent);
+  }
+  button:disabled {
+    color: color-mix(in srgb, var(--ac-dim) 50%, transparent);
+    border-color: color-mix(in srgb, var(--ac-dim) 30%, transparent);
+    cursor: not-allowed;
+  }
+  button.active {
+    background: color-mix(in srgb, var(--ac) 8%, var(--bg));
+    border-color: var(--ac);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--ac) 40%, transparent);
+    color: var(--ac);
+  }
+  button::before { content: '> '; color: var(--ac-dim); }
+
+  /* ===== SPEED SLIDER ===== */
+  .slider-wrap {
+    border: 1px solid color-mix(in srgb, var(--ac-dim) 30%, transparent);
+    padding: 10px 12px;
+    background: #050505;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .slider-wrap .title { font-size: 0.6rem; color: var(--ac-dim); letter-spacing: 0.2em; }
+  .slider-row { display: flex; align-items: center; gap: 10px; }
+  input[type=range] {
+    flex: 1;
+    accent-color: var(--ac);
+    background: transparent;
+    cursor: pointer;
+    height: 4px;
+  }
+  .speed-val { font-size: 0.7rem; color: var(--ac); min-width: 42px; text-align: right; }
+
+  /* ===== CHART ===== */
+  .chart-wrap {
+    border: 1px solid color-mix(in srgb, var(--ac-dim) 30%, transparent);
+    padding: 10px 12px;
+    background: #050505;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .chart-wrap .title { font-size: 0.6rem; color: var(--ac-dim); letter-spacing: 0.2em; }
+  #chart-canvas {
+    display: block;
+    background: #050505;
+    border: 1px solid #111;
+  }
+  .chart-legend {
+    display: flex;
+    gap: 12px;
+    font-size: 0.58rem;
+  }
+  .legend-item { display: flex; align-items: center; gap: 4px; color: var(--ac-dim); }
+  .legend-dot { width: 8px; height: 8px; }
+
+  /* ===== SCROLLBAR ===== */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--ac-dim) 40%, transparent); }
+
+  /* ===== SPECIES DOTS ===== */
+  .sp-dot {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid transparent;
+    flex-shrink: 0;
+    transition: transform 0.1s;
+  }
+  .sp-dot:hover  { transform: scale(1.25); }
+  .sp-dot.sp-active { border-color: #fff; transform: scale(1.2); }
+
+  /* ===== SPECIES SCOREBOARD ===== */
+  .sp-score-row {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 0.68rem;
+    padding: 2px 0;
+  }
+  .sp-pip  { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .sp-label { color: var(--ac-dim); flex: 1; letter-spacing: 0.08em; }
+  .sp-count { color: var(--ac); font-size: 0.75rem; min-width: 36px; text-align: right; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>&#9632; LIFE-EVOLVE</h1>
+  <p>CONWAY'S GAME OF LIFE &bull; GENETIC ALGORITHM &bull; TOROIDAL 150&times;150 &bull; FULLSCREEN</p>
+</header>
+
+<div class="layout">
+  <!-- MAIN GRID -->
+  <div class="grid-wrap">
+    <div id="canvas-area">
+      <canvas id="grid-canvas"></canvas>
+    </div>
+    <div id="phase-label">INITIALISING...</div>
+    <div id="draw-hint" style="font-size:0.55rem; color:#1a5c0a; text-align:center; letter-spacing:0.1em;">CELL TOOL: CLICK/DRAG TO DRAW &middot; SELECT FOOD OR BOMB IN PANEL</div>
+  </div>
+
+  <!-- SIDE PANEL -->
+  <div class="panel">
+
+    <!-- STATS -->
+    <div class="stats-box">
+      <div class="title">// STATISTICS</div>
+      <div class="stat-row">
+        <span class="label">EPOCH</span>
+        <span class="value" id="stat-epoch">0</span>
+      </div>
+      <div class="stat-row">
+        <span class="label">BEST LIFESPAN</span>
+        <span class="value highlight" id="stat-best">&ndash;</span>
+      </div>
+      <div class="stat-row">
+        <span class="label">AVG LIFESPAN</span>
+        <span class="value" id="stat-avg">&ndash;</span>
+      </div>
+      <div class="stat-row">
+        <span class="label">GENERATION</span>
+        <span class="value" id="stat-gen">0</span>
+      </div>
+      <div class="stat-row">
+        <span class="label">ALIVE CELLS</span>
+        <span class="value" id="stat-alive">0</span>
+      </div>
+    </div>
+
+    <!-- INJECT PATTERN -->
+    <div class="slider-wrap" id="pattern-wrap">
+      <div class="title">// INJECT PATTERN</div>
+      <div class="slider-row" style="gap:6px; flex-wrap:wrap;">
+        <select id="pattern-select" style="flex:1; background:#050505; color:var(--ac); border:1px solid color-mix(in srgb, var(--ac) 40%, transparent); font-family:'Courier New',monospace; font-size:0.7rem; padding:6px 8px; cursor:pointer; letter-spacing:0.1em;">
+          <option value="">-- SELECT --</option>
+          <option value="glider">GLIDER</option>
+          <option value="blinker">BLINKER</option>
+          <option value="pulsar">PULSAR</option>
+          <option value="rpento">R-PENTOMINO</option>
+          <option value="gosper">GOSPER GLIDER GUN</option>
+        </select>
+        <button id="btn-inject" style="width:auto; padding:6px 10px;">INJECT</button>
+      </div>
+    </div>
+
+    <!-- COLOR THEME -->
+    <div class="slider-wrap">
+      <div class="title">// COLOR THEME</div>
+      <div class="slider-row">
+        <select id="theme-select" style="flex:1; background:#050505; color:var(--ac); border:1px solid color-mix(in srgb, var(--ac) 40%, transparent); font-family:'Courier New',monospace; font-size:0.7rem; padding:6px 8px; cursor:pointer; letter-spacing:0.1em;">
+          <option value="matrix">MATRIX GREEN</option>
+          <option value="neon">NEON BLUE</option>
+          <option value="synthwave">SYNTHWAVE</option>
+          <option value="fire">FIRE</option>
+          <option value="arctic">ARCTIC</option>
+          <option value="psychedelic">✦ PSYCHEDELIC</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- COLONIES -->
+    <div class="slider-wrap">
+      <div class="title">// COLONIES</div>
+      <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-bottom:6px;">
+        <span style="font-size:0.58rem; color:var(--ac-dim); letter-spacing:0.1em;">DRAW AS:</span>
+        <div id="sp-dot-1" class="sp-dot sp-active" title="Species 1 (GA)" style="background:#39ff14; box-shadow:0 0 5px #39ff14;"></div>
+        <div id="sp-dot-2" class="sp-dot" title="Species 2" style="background:#ff2200; box-shadow:0 0 5px #ff2200;"></div>
+        <div id="sp-dot-3" class="sp-dot" title="Species 3" style="background:#0066ff; box-shadow:0 0 5px #0066ff;"></div>
+        <div id="sp-dot-4" class="sp-dot" title="Species 4" style="background:#cc00ff; box-shadow:0 0 5px #cc00ff;"></div>
+        <div id="sp-dot-5" class="sp-dot" title="Species 5" style="background:#ffcc00; box-shadow:0 0 5px #ffcc00;"></div>
+        <div id="sp-dot-6" class="sp-dot" title="Species 6" style="background:#00e8b4; box-shadow:0 0 5px #00e8b4;"></div>
+      </div>
+      <button id="btn-spawn" style="margin-bottom:4px;">▶ SPAWN NEXT COLONY</button>
+      <!-- live scoreboard -->
+      <div style="display:flex; flex-direction:column; gap:2px; margin-top:4px;">
+        <div class="sp-score-row"><span class="sp-pip" style="background:#39ff14;"></span><span class="sp-label">SP 1 (GA)</span><span id="sp-count-1" class="sp-count">0</span></div>
+        <div class="sp-score-row"><span class="sp-pip" style="background:#ff2200;"></span><span class="sp-label">SP 2</span><span id="sp-count-2" class="sp-count">0</span></div>
+        <div class="sp-score-row"><span class="sp-pip" style="background:#0066ff;"></span><span class="sp-label">SP 3</span><span id="sp-count-3" class="sp-count">0</span></div>
+        <div class="sp-score-row"><span class="sp-pip" style="background:#cc00ff;"></span><span class="sp-label">SP 4</span><span id="sp-count-4" class="sp-count">0</span></div>
+        <div class="sp-score-row"><span class="sp-pip" style="background:#ffcc00;"></span><span class="sp-label">SP 5</span><span id="sp-count-5" class="sp-count">0</span></div>
+        <div class="sp-score-row"><span class="sp-pip" style="background:#00e8b4;"></span><span class="sp-label">SP 6</span><span id="sp-count-6" class="sp-count">0</span></div>
+      </div>
+    </div>
+
+    <!-- DRAW TOOL -->
+    <div class="slider-wrap" id="tool-wrap">
+      <div class="title">// DRAW TOOL</div>
+      <div class="slider-row" style="gap:6px; flex-wrap:wrap;">
+        <button id="btn-tool-cell"  class="active" style="width:auto; padding:6px 10px;">CELL</button>
+        <button id="btn-tool-food"  style="width:auto; padding:6px 10px; color:#ffc220; border-color:#ffc22066;">FOOD</button>
+        <button id="btn-tool-bomb"  style="width:auto; padding:6px 10px; color:#ff3c5a; border-color:#ff3c5a66;">BOMB</button>
+      </div>
+      <div class="slider-row" style="margin-top:6px;">
+        <span style="font-size:0.6rem; color:#2a8c0a; letter-spacing:0.1em; white-space:nowrap;">BRUSH SIZE</span>
+        <input type="range" id="brush-slider" min="0" max="5" value="1" style="flex:1; margin: 0 8px;">
+        <span class="speed-val" id="brush-val">3×3</span>
+      </div>
+      <div id="tool-hint" style="font-size:0.55rem; color:#2a8c0a; letter-spacing:0.08em; margin-top:4px;">DRAG TO PAINT CELLS</div>
+    </div>
+
+    <!-- CONTROLS -->
+    <div class="btn-group">
+      <button id="btn-pause">PAUSE SIM</button>
+      <button id="btn-next">NEXT EPOCH</button>
+      <button id="btn-auto">AUTO-EVOLVE</button>
+      <button id="btn-reset">RESET</button>
+    </div>
+
+    <!-- SPEED -->
+    <div class="slider-wrap">
+      <div class="title">// PLAYBACK SPEED</div>
+      <div class="slider-row">
+        <input type="range" id="speed-slider" min="1" max="60" value="10">
+        <span class="speed-val" id="speed-val">10 fps</span>
+      </div>
+    </div>
+
+    <!-- SIM SPEED -->
+    <div class="slider-wrap">
+      <div class="title">// SIM STEPS / FRAME</div>
+      <div class="slider-row">
+        <input type="range" id="steps-slider" min="1" max="16" value="1">
+        <span class="speed-val" id="steps-val">&times;1</span>
+      </div>
+    </div>
+
+    <!-- CHART -->
+    <div class="chart-wrap">
+      <div class="title">// LIFESPAN HISTORY</div>
+      <canvas id="chart-canvas" width="244" height="110"></canvas>
+      <div class="chart-legend">
+        <div class="legend-item">
+          <div class="legend-dot" style="background:#ffc220"></div>BEST
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:#39ff1466"></div>AVG
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /panel -->
+</div><!-- /layout -->
+
+<script>
+/* ============================================================
+   LIFE-EVOLVE — Conway's Game of Life + Genetic Algorithm
+   Single-file vanilla JS. No dependencies. Toroidal 150x150 grid.
+   ============================================================ */
+
+// ────────────────────────────────────────────────────────────
+// CONSTANTS
+// ────────────────────────────────────────────────────────────
+const CELL_PX     = 5;       // fixed pixel size per cell
+let   COLS        = 150;     // grid width (cells) — recalculated on resize
+let   ROWS        = 150;     // grid height (cells) — recalculated on resize
+let   CELL        = CELL_PX; // alias used throughout (same as CELL_PX)
+const POP_SIZE    = 20;      // organisms per epoch
+const MAX_GENS       = 500;   // max simulation steps per organism (GA evaluation)
+const DISPLAY_MAX_GENS = 4000; // max steps before display loops back
+const STABLE_THRESH  = 30;    // steps with unchanged hash = stabilised
+const INIT_FILL   = 0.30;    // initial random cell density (~30%)
+const MUTATION_RATE = 0.02;  // probability of flipping each cell on mutation
+const TOP_HALF    = POP_SIZE / 2;  // survivors selected per epoch = 10
+
+// ────────────────────────────────────────────────────────────
+// COLOR THEMES
+// ────────────────────────────────────────────────────────────
+const THEMES = {
+  matrix: {
+    name: 'MATRIX GREEN',
+    bg:   [4,   8,   4],
+    low:  [0,   35,  5],      // nearly-black dim green — barely visible
+    mid:  [0,   255, 30],     // nuclear neon green
+    high: [180, 255, 220],    // blinding cyan-white at peak density
+    flash:[0,   255, 255],
+    food: [255, 200, 0],
+    bomb: [220, 30,  80],
+    accent:    '#39ff14',
+    accentDim: '#1a5c0a',
+    bgHex:     '#040804',
+  },
+  neon: {
+    name: 'NEON BLUE',
+    bg:   [2,   2,   18],
+    low:  [0,   5,   60],     // deep dark navy — barely a whisper
+    mid:  [0,   100, 255],    // electric blue
+    high: [160, 255, 255],    // screaming cyan-white
+    flash:[255, 0,   255],    // hot magenta flash
+    food: [255, 210, 0],
+    bomb: [255, 40,  40],
+    accent:    '#00aaff',
+    accentDim: '#003366',
+    bgHex:     '#020212',
+  },
+  synthwave: {
+    name: 'SYNTHWAVE',
+    bg:   [6,   0,   14],
+    low:  [40,  0,   70],     // dark deep purple — barely visible
+    mid:  [255, 0,   200],    // hot magenta
+    high: [255, 200, 60],     // neon gold-orange at peak
+    flash:[0,   255, 200],
+    food: [255, 220, 0],
+    bomb: [255, 50,  50],
+    accent:    '#ff00cc',
+    accentDim: '#660044',
+    bgHex:     '#06000e',
+  },
+  fire: {
+    name: 'FIRE',
+    bg:   [4,   0,   0],
+    low:  [50,  2,   0],      // near-black blood red — dim ember
+    mid:  [255, 80,  0],      // burning orange
+    high: [255, 255, 140],    // nuclear solar white-yellow
+    flash:[255, 40,  0],
+    food: [80,  255, 100],
+    bomb: [0,   100, 255],
+    accent:    '#ff5500',
+    accentDim: '#661100',
+    bgHex:     '#040000',
+  },
+  arctic: {
+    name: 'ARCTIC',
+    bg:   [0,   4,   16],
+    low:  [0,   15,  60],     // near-black deep navy — barely visible
+    mid:  [0,   200, 255],    // pure electric arctic cyan
+    high: [255, 255, 255],    // pure white
+    flash:[255, 230, 100],    // warm aurora gold
+    food: [80,  255, 140],
+    bomb: [255, 60,  30],
+    accent:    '#00ccff',
+    accentDim: '#004466',
+    bgHex:     '#000410',
+  },
+};
+
+let activePalette  = THEMES.matrix;
+let psychedelicMode = false;
+
+// ── Multi-species palettes (species 1 = current theme; 2-6 = fixed vivid) ──
+const SPECIES_PALETTES = [
+  null, // 0 = dead
+  null, // 1 = active theme (set dynamically in buildRenderBuffers)
+  { low: [50,  0,   0],   mid: [255, 30,  0],   high: [255, 200, 120] }, // 2 fire-red
+  { low: [0,   5,   55],  mid: [0,   90,  255],  high: [140, 230, 255] }, // 3 electric-blue
+  { low: [45,  0,   65],  mid: [210, 0,   255],  high: [255, 170, 255] }, // 4 violet
+  { low: [55,  45,  0],   mid: [255, 210, 0],   high: [255, 255, 170] }, // 5 solar-yellow
+  { low: [0,   45,  40],  mid: [0,   230, 185],  high: [180, 255, 240] }, // 6 teal
+];
+
+// Accent colours per species (for UI dots / glow)
+const SPECIES_ACCENTS = [
+  null,
+  null,       // uses theme accent
+  '#ff2200',
+  '#0066ff',
+  '#cc00ff',
+  '#ffcc00',
+  '#00e8b4',
+];
+
+let activeSpecies     = 1;   // which species the draw tool places
+let nextColonySpecies = 2;   // cycles 2→3→4→5→6→2 on each spawn
+
+// Two scales that ebb and flow in psychedelic mode
+const PSYCH_COOL = {
+  bg:    [0, 6, 8],
+  low:   [0, 30, 20],       // deep near-black teal
+  mid:   [0, 230, 180],     // electric teal
+  high:  [100, 255, 255],   // blazing cyan
+  flash: [255, 255, 255],
+  food:  [255, 230, 0],
+  bomb:  [255, 20, 80],
+  accent: '#00e8b4', accentDim: '#005540', bgHex: '#000608',
+};
+const PSYCH_WARM = {
+  bg:    [8, 3, 0],
+  low:   [40, 5, 0],        // deep near-black ember
+  mid:   [255, 160, 0],     // blazing orange
+  high:  [255, 255, 80],    // nuclear yellow
+  flash: [255, 255, 255],
+  food:  [0, 255, 120],
+  bomb:  [0, 80, 255],
+  accent: '#ffaa00', accentDim: '#663300', bgHex: '#080300',
+};
+
+/**
+ * Update CSS accent vars for psychedelic mode using a global phase (0–1).
+ * Per-cell colour is computed spatially in drawGrid — no LUT needed here.
+ */
+function buildPsychedelicBuffers(phase) {
+  const lerp = (a, b, t) => Math.round(a + (b - a) * t);
+  const bg  = PSYCH_COOL.bg.map((v, i)  => lerp(v, PSYCH_WARM.bg[i],  phase));
+  const mid = PSYCH_COOL.mid.map((v, i) => lerp(v, PSYCH_WARM.mid[i], phase));
+  const low = PSYCH_COOL.low.map((v, i) => lerp(v, PSYCH_WARM.low[i], phase));
+
+  // Keep activePalette updated so BG, food, bomb colours shift globally
+  activePalette = {
+    bg,
+    low,
+    mid,
+    high:  PSYCH_COOL.high.map((v, i) => lerp(v, PSYCH_WARM.high[i], phase)),
+    flash: PSYCH_COOL.flash,
+    food:  PSYCH_COOL.food,
+    bomb:  PSYCH_COOL.bomb,
+    accent:    `rgb(${mid[0]},${mid[1]},${mid[2]})`,
+    accentDim: `rgb(${low[0]},${low[1]},${low[2]})`,
+    bgHex:     `rgb(${bg[0]},${bg[1]},${bg[2]})`,
+  };
+
+  document.documentElement.style.setProperty('--ac',     activePalette.accent);
+  document.documentElement.style.setProperty('--ac-dim', activePalette.accentDim);
+  document.documentElement.style.setProperty('--bg',     activePalette.bgHex);
+}
+
+/**
+ * Return [r,g,b] for density t (0–1) within a palette (low→mid→high).
+ */
+function paletteColor(pal, t) {
+  if (t <= 0.5) {
+    const u = t * 2;
+    return [
+      Math.round(pal.low[0] + (pal.mid[0] - pal.low[0]) * u),
+      Math.round(pal.low[1] + (pal.mid[1] - pal.low[1]) * u),
+      Math.round(pal.low[2] + (pal.mid[2] - pal.low[2]) * u),
+    ];
+  }
+  const u = (t - 0.5) * 2;
+  return [
+    Math.round(pal.mid[0] + (pal.high[0] - pal.mid[0]) * u),
+    Math.round(pal.mid[1] + (pal.high[1] - pal.mid[1]) * u),
+    Math.round(pal.mid[2] + (pal.high[2] - pal.mid[2]) * u),
+  ];
+}
+
+/**
+ * Per-cell psychedelic colour.
+ * Two spatial sine waves (different frequencies + directions) give each cell
+ * a unique phase, making the cool/warm blend ripple across the grid.
+ */
+function psychCellColor(row, col, density, t, species) {
+  // Each species gets a phase offset so they keep distinct hues
+  const spOffset = (species - 1) * (Math.PI * 2 / 6);
+  const phase = (
+    Math.sin(t * 2.2 + row * 0.10 - col * 0.07 + spOffset) * 0.55 +
+    Math.sin(t * 1.4 - row * 0.05 + col * 0.09 + spOffset * 0.7) * 0.45 +
+    1
+  ) / 2;
+
+  const dn   = density / 24;
+  const cool = paletteColor(PSYCH_COOL, dn);
+  const warm = paletteColor(PSYCH_WARM, dn);
+  return [
+    Math.round(cool[0] + (warm[0] - cool[0]) * phase),
+    Math.round(cool[1] + (warm[1] - cool[1]) * phase),
+    Math.round(cool[2] + (warm[2] - cool[2]) * phase),
+  ];
+}
+
+function applyTheme(key) {
+  if (key === 'psychedelic') {
+    psychedelicMode = true;
+    // Initial palette so the canvas isn't blank
+    buildPsychedelicBuffers(0);
+    if (_imageData) {
+      _imageData = gridCtx.createImageData(gridCanvas.width, gridCanvas.height);
+      _pixelBuf  = new Uint32Array(_imageData.data.buffer);
+    }
+    drawChart();
+    return;
+  }
+  psychedelicMode = false;
+  activePalette = THEMES[key] || THEMES.matrix;
+  const p = activePalette;
+  document.documentElement.style.setProperty('--ac',     p.accent);
+  document.documentElement.style.setProperty('--ac-dim', p.accentDim);
+  document.documentElement.style.setProperty('--bg',     p.bgHex);
+  // Keep species-1 dot in sync with the active theme colour
+  const dot1 = document.getElementById('sp-dot-1');
+  if (dot1) { dot1.style.background = p.accent; dot1.style.boxShadow = `0 0 5px ${p.accent}`; }
+  buildRenderBuffers();
+  drawChart();
+}
+
+// ────────────────────────────────────────────────────────────
+// DOM REFERENCES
+// ────────────────────────────────────────────────────────────
+const gridCanvas    = document.getElementById('grid-canvas');
+const gridCtx       = gridCanvas.getContext('2d');
+const chartCanvas   = document.getElementById('chart-canvas');
+const chartCtx      = chartCanvas.getContext('2d');
+const phaseLabel    = document.getElementById('phase-label');
+const statEpoch     = document.getElementById('stat-epoch');
+const statBest      = document.getElementById('stat-best');
+const statAvg       = document.getElementById('stat-avg');
+const statGen       = document.getElementById('stat-gen');
+const statAlive     = document.getElementById('stat-alive');
+const btnNext       = document.getElementById('btn-next');
+const btnAuto       = document.getElementById('btn-auto');
+const btnReset      = document.getElementById('btn-reset');
+const btnPause      = document.getElementById('btn-pause');
+const btnInject     = document.getElementById('btn-inject');
+const patternSelect = document.getElementById('pattern-select');
+const speedSlider   = document.getElementById('speed-slider');
+const speedVal      = document.getElementById('speed-val');
+
+// ────────────────────────────────────────────────────────────
+// SIMULATION STATE
+// ────────────────────────────────────────────────────────────
+let epoch         = 0;
+let population    = [];
+let epochHistory  = [];
+
+let bestInitGrid  = null;
+let displayGrid   = null;
+let displayStep   = 0;
+
+let bestLifespan  = 0;
+let avgLifespan   = 0;
+let allTimeBest   = 0;
+
+let animHandle    = null;
+let autoHandle    = null;
+let autoRunning   = false;
+let simPaused     = false;
+let isDrawing     = false;
+let drawMode      = null;
+
+let cyanMap = new Float32Array(ROWS * COLS);
+let foodMap = new Float32Array(ROWS * COLS);
+let bombMap = new Float32Array(ROWS * COLS);
+
+let activeTool  = 'cell';
+let brushRadius = 1;
+
+// ── Performance: double-buffer for display stepping (no alloc per frame) ──
+let _nextGrid  = null;
+
+// ── Rendering: reusable ImageData pixel buffer ──
+let _imageData = null;
+let _pixelBuf  = null;
+
+// ── Precomputed density→colour LUT (26 entries: density 0-24 + dead-bg) ──
+let _colorTable = null; // Uint32Array, little-endian ABGR packed
+
+// ── Steps per rendered frame (set by slider) ──
+let stepsPerFrame = 1;
+
+// ────────────────────────────────────────────────────────────
+// GRID UTILITIES
+// ────────────────────────────────────────────────────────────
+
+/** Allocate a zeroed flat grid (ROWS × COLS Uint8Array). */
+function createGrid() {
+  return new Uint8Array(ROWS * COLS);
+}
+
+/** Clone an existing grid. */
+function cloneGrid(g) {
+  return new Uint8Array(g);
+}
+
+/** Flat index with toroidal (wrap-around) edge handling. */
+function idx(r, c) {
+  return ((r + ROWS) % ROWS) * COLS + ((c + COLS) % COLS);
+}
+
+/** Fill a grid randomly with approx. `fillRate` alive cells. */
+function randomGrid(fillRate) {
+  fillRate = fillRate !== undefined ? fillRate : INIT_FILL;
+  const g = createGrid();
+  for (let i = 0; i < g.length; i++) {
+    g[i] = Math.random() < fillRate ? 1 : 0;
+  }
+  return g;
+}
+
+/** Apply one Conway step (toroidal) with food/bomb zone effects. Returns a new grid. */
+function stepGrid(g) {
+  const next = createGrid();
+  stepGridInto(g, next);
+  return next;
+}
+
+// Reusable buffer for neighbor-species counting (avoid GC pressure)
+const _spCount = new Int32Array(7); // index = species id 1-6
+
+/**
+ * Like stepGrid but writes into a pre-allocated destination buffer.
+ * Supports multi-species: cells store species ID (1-6), 0 = dead.
+ * Birth rule: dead cell with exactly 3 alive neighbors comes alive
+ *   as the species with the most neighbors (random tiebreak).
+ * Survival rule: alive cell with 2-3 total alive neighbors survives
+ *   (keeps its own species ID).
+ * Food/bomb zones apply as before.
+ */
+function stepGridInto(g, dest) {
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const i     = idx(r, c);
+      const self  = g[i];          // 0 = dead, 1-6 = species
+      const food  = foodMap[i];
+      const bomb  = bombMap[i];
+
+      // Count neighbours by species
+      _spCount.fill(0);
+      let total = 0;
+      const n0 = g[idx(r-1, c-1)]; if (n0) { _spCount[n0]++; total++; }
+      const n1 = g[idx(r-1, c  )]; if (n1) { _spCount[n1]++; total++; }
+      const n2 = g[idx(r-1, c+1)]; if (n2) { _spCount[n2]++; total++; }
+      const n3 = g[idx(r,   c-1)]; if (n3) { _spCount[n3]++; total++; }
+      const n4 = g[idx(r,   c+1)]; if (n4) { _spCount[n4]++; total++; }
+      const n5 = g[idx(r+1, c-1)]; if (n5) { _spCount[n5]++; total++; }
+      const n6 = g[idx(r+1, c  )]; if (n6) { _spCount[n6]++; total++; }
+      const n7 = g[idx(r+1, c+1)]; if (n7) { _spCount[n7]++; total++; }
+
+      if (bomb > 0.2) {
+        dest[i] = 0;
+      } else if (self) {
+        // Survival: 2-3 neighbours (food zones: 2-4)
+        const survives = food > 0.2
+          ? (total >= 2 && total <= 4)
+          : (total === 2 || total === 3);
+        dest[i] = survives ? self : 0;
+      } else {
+        // Birth: exactly 3 neighbours (food zones: 2 or 3)
+        const born = food > 0.2
+          ? (total === 2 || total === 3)
+          : (total === 3);
+        if (born) {
+          // Winner = species with most neighbours; random on tie
+          let bestSp = 0, bestCt = 0;
+          for (let s = 1; s <= 6; s++) {
+            if (_spCount[s] > bestCt) { bestCt = _spCount[s]; bestSp = s; }
+            else if (_spCount[s] === bestCt && bestCt > 0 && Math.random() < 0.5) { bestSp = s; }
+          }
+          dest[i] = bestSp;
+        } else {
+          dest[i] = 0;
+        }
+      }
+    }
+  }
+}
+
+/** Fast integer hash of a grid for stabilisation detection. */
+function gridHash(g) {
+  let h = 2166136261; // FNV-1a 32-bit offset basis
+  for (let i = 0; i < g.length; i++) {
+    h = Math.imul(h ^ g[i], 16777619) >>> 0;
+  }
+  return h;
+}
+
+/** Count live cells in a grid (any species). */
+function countAlive(g) {
+  let n = 0;
+  for (let i = 0; i < g.length; i++) if (g[i]) n++;
+  return n;
+}
+
+/**
+ * Count alive cells per species. Returns Int32Array[7] (index 1-6 used).
+ * Allocates fresh; only call once per display frame.
+ */
+function countBySpecies(g) {
+  const counts = new Int32Array(7);
+  for (let i = 0; i < g.length; i++) if (g[i]) counts[g[i]]++;
+  return counts;
+}
+
+// ────────────────────────────────────────────────────────────
+// EVALUATION — simulate one organism, return lifespan score
+// ────────────────────────────────────────────────────────────
+
+/**
+ * Simulate `startGrid` for up to MAX_GENS steps.
+ * Lifespan = step at which all cells die OR the grid is stable
+ * (hash unchanged for STABLE_THRESH consecutive steps).
+ * If neither happens, returns MAX_GENS (organism is very fit).
+ */
+function evaluate(startGrid) {
+  let g         = cloneGrid(startGrid);
+  let prevHash  = gridHash(g);
+  let sameCount = 0;
+
+  for (let step = 1; step <= MAX_GENS; step++) {
+    g = stepGrid(g);
+
+    // Extinction check
+    if (countAlive(g) === 0) return step;
+
+    // Stabilisation check
+    const h = gridHash(g);
+    if (h === prevHash) {
+      sameCount++;
+      if (sameCount >= STABLE_THRESH) return step;
+    } else {
+      sameCount = 0;
+      prevHash = h;
+    }
+  }
+  return MAX_GENS; // survived the full run
+}
+
+// ────────────────────────────────────────────────────────────
+// GENETIC ALGORITHM
+// ────────────────────────────────────────────────────────────
+
+/** Create a fresh random population of POP_SIZE organisms. */
+function initPopulation() {
+  population = [];
+  for (let i = 0; i < POP_SIZE; i++) {
+    population.push({ grid: randomGrid(), lifespan: 0 });
+  }
+}
+
+/** Evaluate every organism in the current population. */
+function evaluatePopulation() {
+  // Snapshot and zero maps so GA evaluates under pure Conway rules
+  const savedFood = new Float32Array(foodMap);
+  const savedBomb = new Float32Array(bombMap);
+  foodMap.fill(0);
+  bombMap.fill(0);
+
+  for (let i = 0; i < population.length; i++) {
+    population[i].lifespan = evaluate(population[i].grid);
+  }
+
+  // Restore painted zones after evaluation
+  foodMap.set(savedFood);
+  bombMap.set(savedBomb);
+}
+
+/** Fisher-Yates shuffle (in-place). */
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+/**
+ * Horizontal-split crossover.
+ * Returns two children: one takes rows [0, splitRow) from p1 + rest from p2,
+ * the other takes the opposite combination.
+ */
+function crossover(p1, p2) {
+  const splitRow = 1 + Math.floor(Math.random() * (ROWS - 2)); // avoid trivial splits
+  const c1 = createGrid();
+  const c2 = createGrid();
+  for (let r = 0; r < ROWS; r++) {
+    const start = r * COLS;
+    const end   = start + COLS;
+    if (r < splitRow) {
+      c1.set(p1.subarray(start, end), start);
+      c2.set(p2.subarray(start, end), start);
+    } else {
+      c1.set(p2.subarray(start, end), start);
+      c2.set(p1.subarray(start, end), start);
+    }
+  }
+  return [c1, c2];
+}
+
+/** Randomly flip ~MUTATION_RATE fraction of cells. Mutates in-place. */
+function mutate(g) {
+  for (let i = 0; i < g.length; i++) {
+    if (Math.random() < MUTATION_RATE) g[i] ^= 1;
+  }
+  return g;
+}
+
+/**
+ * Run one full evolution epoch:
+ * 1. Evaluate population
+ * 2. Sort by lifespan, compute stats
+ * 3. Store best organism for display
+ * 4. Select top 50% as survivors
+ * 5. Breed next generation via crossover + mutation
+ * 6. Update UI
+ */
+function runEpoch() {
+  setPhase('EVALUATING POPULATION...');
+  setButtons(true);
+
+  // --- 1. Evaluate ---
+  evaluatePopulation();
+
+  // --- 2. Sort & Stats ---
+  population.sort((a, b) => b.lifespan - a.lifespan);
+  bestLifespan = population[0].lifespan;
+  const totalLS = population.reduce((sum, o) => sum + o.lifespan, 0);
+  avgLifespan  = Math.round(totalLS / POP_SIZE);
+  if (bestLifespan > allTimeBest) allTimeBest = bestLifespan;
+
+  // --- 3. Capture best organism's initial grid for replay ---
+  bestInitGrid = cloneGrid(population[0].grid);
+  displayGrid  = cloneGrid(bestInitGrid);
+  displayStep  = 0;
+
+  // --- 4. Record epoch history ---
+  epoch++;
+  epochHistory.push({ best: bestLifespan, avg: avgLifespan });
+
+  // --- 5. Select survivors (top 50%) ---
+  const survivors = population.slice(0, TOP_HALF); // already sorted
+
+  // --- 6. Breed next generation ---
+  // Shuffle survivors into random pairs. 5 pairs × 4 children = 20 offspring.
+  const shuffled  = shuffle([...survivors]);
+  const nextPop   = [];
+
+  for (let i = 0; i < TOP_HALF; i += 2) {
+    const p1 = shuffled[i].grid;
+    const p2 = shuffled[(i + 1) % TOP_HALF].grid;
+
+    // Two crossovers, two orderings → 4 children per pair
+    const [c1, c2] = crossover(p1, p2);
+    const [c3, c4] = crossover(p2, p1);
+
+    nextPop.push({ grid: mutate(c1), lifespan: 0 });
+    nextPop.push({ grid: mutate(c2), lifespan: 0 });
+    nextPop.push({ grid: mutate(c3), lifespan: 0 });
+    nextPop.push({ grid: mutate(c4), lifespan: 0 });
+  }
+
+  // Safety: pad with random organisms if somehow short
+  while (nextPop.length < POP_SIZE) {
+    nextPop.push({ grid: randomGrid(), lifespan: 0 });
+  }
+  population = nextPop.slice(0, POP_SIZE);
+
+  // --- 7. Refresh UI ---
+  updateStats();
+  drawChart();
+  setButtons(false);
+  setPhase('EPOCH ' + epoch + ' COMPLETE — DISPLAYING BEST ORGANISM (LIFESPAN: ' + bestLifespan + ')');
+}
+
+// ────────────────────────────────────────────────────────────
+// FAST RENDERER: ImageData pixel buffer + precomputed colour LUT
+//
+// No shadowBlur, no per-cell fillRect, no grid lines every frame.
+// One putImageData() call per render = dramatically faster.
+// ────────────────────────────────────────────────────────────
+
+/**
+ * Pack an RGB triple into a little-endian 32-bit pixel (ABGR memory layout)
+ * so it can be written directly into a Uint32Array over an ImageData buffer.
+ */
+function packRGB(r, g, b) {
+  return (255 << 24) | (b << 16) | (g << 8) | r;
+}
+
+/**
+ * Build (or rebuild) the density→colour lookup table.
+ * 25 entries (density 0–24) — green → yellow → red gradient.
+ * Also builds the pixel buffer and ImageData sized to the current canvas.
+ */
+function buildRenderBuffers() {
+  const p = activePalette;
+
+  // Slot species 1 into SPECIES_PALETTES so LUT builder can treat all uniformly
+  SPECIES_PALETTES[1] = { low: p.low, mid: p.mid, high: p.high };
+
+  // Flat LUT: _colorTable[speciesId * 25 + density] = packed ABGR
+  _colorTable = new Uint32Array(7 * 25); // species 0-6, density 0-24
+  for (let sp = 1; sp <= 6; sp++) {
+    const pal = SPECIES_PALETTES[sp];
+    for (let d = 0; d < 25; d++) {
+      const t = d / 24;
+      let cr, cg, cb;
+      if (t <= 0.5) {
+        const u = t * 2;
+        cr = Math.round(pal.low[0] + (pal.mid[0] - pal.low[0]) * u);
+        cg = Math.round(pal.low[1] + (pal.mid[1] - pal.low[1]) * u);
+        cb = Math.round(pal.low[2] + (pal.mid[2] - pal.low[2]) * u);
+      } else {
+        const u = (t - 0.5) * 2;
+        cr = Math.round(pal.mid[0] + (pal.high[0] - pal.mid[0]) * u);
+        cg = Math.round(pal.mid[1] + (pal.high[1] - pal.mid[1]) * u);
+        cb = Math.round(pal.mid[2] + (pal.high[2] - pal.mid[2]) * u);
+      }
+      _colorTable[sp * 25 + d] = packRGB(cr, cg, cb);
+    }
+  }
+
+  _imageData = gridCtx.createImageData(gridCanvas.width, gridCanvas.height);
+  _pixelBuf  = new Uint32Array(_imageData.data.buffer);
+}
+
+/** Linear-interpolate between two RGB triples. */
+function lerpColor(c1, c2, t) {
+  return [
+    Math.round(c1[0] + (c2[0] - c1[0]) * t),
+    Math.round(c1[1] + (c2[1] - c1[1]) * t),
+    Math.round(c1[2] + (c2[2] - c1[2]) * t),
+  ];
+}
+
+/**
+ * For each cell, count ALIVE cells within a radius-2 neighbourhood
+ * (5×5 area = 24 surrounding cells, excluding the cell itself).
+ */
+function computeDensity(g) {
+  const density = new Uint8Array(ROWS * COLS);
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      let count = 0;
+      for (let dr = -2; dr <= 2; dr++) {
+        for (let dc = -2; dc <= 2; dc++) {
+          if (dr === 0 && dc === 0) continue;
+          count += g[idx(r + dr, c + dc)];
+        }
+      }
+      density[r * COLS + c] = count;
+    }
+  }
+  return density;
+}
+
+/** Update the cyan-flash map (high-density alive cells randomly ignite). */
+function updateCyanMap(g, density) {
+  for (let i = 0; i < g.length; i++) {
+    if (g[i] === 1 && density[i] >= 7) {
+      if (Math.random() < 0.004) {
+        cyanMap[i] = Math.min(1.0, cyanMap[i] + 0.6 + Math.random() * 0.4);
+      }
+    }
+    if (cyanMap[i] > 0) {
+      cyanMap[i] = Math.max(0, cyanMap[i] - 0.018);
+      if (!g[i]) cyanMap[i] = Math.max(0, cyanMap[i] - 0.05);
+    }
+  }
+}
+
+/** Decay food and bomb maps each frame. */
+function decayMaps() {
+  for (let i = 0; i < foodMap.length; i++) {
+    if (foodMap[i] > 0) foodMap[i] = Math.max(0, foodMap[i] - 0.0015);
+    if (bombMap[i] > 0) bombMap[i] = Math.max(0, bombMap[i] - 0.002);
+  }
+}
+
+/**
+ * Render the current displayGrid onto the grid canvas via direct pixel writes.
+ * Single putImageData() call — no per-cell fillRect, no shadowBlur, no grid lines.
+ */
+function drawGrid(g, step) {
+  decayMaps();
+
+  // Psychedelic: update global BG/accent via a slow global phase;
+  // per-cell colour is computed spatially inside the render loop.
+  const psychT = psychedelicMode ? Date.now() / 1000 : 0;
+  if (psychedelicMode) {
+    const globalPhase = (Math.sin(psychT * 1.4) * 0.55 + Math.sin(psychT * 0.9) * 0.45 + 1) / 2;
+    buildPsychedelicBuffers(globalPhase);
+    if (!_pixelBuf || _pixelBuf.length !== gridCanvas.width * gridCanvas.height) {
+      _imageData = gridCtx.createImageData(gridCanvas.width, gridCanvas.height);
+      _pixelBuf  = new Uint32Array(_imageData.data.buffer);
+    }
+  } else if (!_pixelBuf || _pixelBuf.length !== gridCanvas.width * gridCanvas.height) {
+    buildRenderBuffers();
+  }
+
+  const p    = activePalette;
+  const W    = gridCanvas.width;
+  const H    = gridCanvas.height;
+  const BG   = packRGB(p.bg[0], p.bg[1], p.bg[2]);
+  const CELL = CELL_PX;
+
+  const density = computeDensity(g);
+  updateCyanMap(g, density);
+
+  // Fill entire buffer with background colour
+  _pixelBuf.fill(BG);
+
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const ci   = r * COLS + c;
+      const food = foodMap[ci];
+      const bomb = bombMap[ci];
+      const alive = g[ci];
+
+      // Compute base pixel colour
+      let pr = p.bg[0], pg = p.bg[1], pb = p.bg[2];  // background
+
+      if (alive) {
+        // Per-cell colour: spatial wave in psychedelic mode, species LUT otherwise
+        if (psychedelicMode) {
+          const rgb = psychCellColor(r, c, density[ci], psychT, alive);
+          pr = rgb[0]; pg = rgb[1]; pb = rgb[2];
+        } else {
+          const packed = _colorTable[alive * 25 + density[ci]];
+          pr = (packed)        & 0xff;
+          pg = (packed >>> 8)  & 0xff;
+          pb = (packed >>> 16) & 0xff;
+        }
+
+        // Cyan flash lerp
+        const cy = cyanMap[ci];
+        if (cy > 0.05) {
+          pr = Math.round(pr * (1 - cy) + p.flash[0] * cy);
+          pg = Math.round(pg * (1 - cy) + p.flash[1] * cy);
+          pb = Math.round(pb * (1 - cy) + p.flash[2] * cy);
+        }
+      }
+
+      // Food overlay (golden tint)
+      if (food > 0.02) {
+        const fa = food * 0.35;
+        pr = Math.min(255, Math.round(pr * (1 - fa) + p.food[0] * fa));
+        pg = Math.min(255, Math.round(pg * (1 - fa) + p.food[1] * fa));
+        pb = Math.min(255, Math.round(pb * (1 - fa) + p.food[2] * fa));
+      }
+
+      // Bomb overlay (red tint)
+      if (bomb > 0.02) {
+        const ba = bomb * 0.4;
+        pr = Math.min(255, Math.round(pr * (1 - ba) + p.bomb[0] * ba));
+        pg = Math.min(255, Math.round(pg * (1 - ba) + p.bomb[1] * ba));
+        pb = Math.min(255, Math.round(pb * (1 - ba) + p.bomb[2] * ba));
+      }
+
+      const packed32 = (255 << 24) | (pb << 16) | (pg << 8) | pr;
+
+      // Write CELL×CELL pixels for this cell (leaving 1px dark border)
+      const x0 = c * CELL + 1;
+      const y0 = r * CELL + 1;
+      const x1 = x0 + CELL - 2;
+      const y1 = y0 + CELL - 2;
+      for (let py = y0; py < y1 && py < H; py++) {
+        const rowBase = py * W;
+        for (let px = x0; px < x1 && px < W; px++) {
+          _pixelBuf[rowBase + px] = packed32;
+        }
+      }
+    }
+  }
+
+  gridCtx.putImageData(_imageData, 0, 0);
+
+  const spCounts  = countBySpecies(g);
+  const aliveCount = spCounts.reduce((a, b) => a + b, 0);
+  statGen.textContent   = step;
+  statAlive.textContent = aliveCount;
+  updateScoreboard(spCounts);
+
+  if (aliveCount === 0 || step >= DISPLAY_MAX_GENS) {
+    displayGrid.set(bestInitGrid);
+    displayStep = 0;
+  }
+}
+
+/** Render the lifespan history bar chart onto the chart canvas. */
+function drawChart() {
+  const W = chartCanvas.width;
+  const H = chartCanvas.height;
+  const PAD_B = 16; // bottom padding for labels
+  const PAD_T = 14; // top padding for max label
+
+  chartCtx.fillStyle = '#050505';
+  chartCtx.fillRect(0, 0, W, H);
+
+  if (epochHistory.length === 0) return;
+
+  const BAR_W = 9;
+  const GAP   = 2;
+  const SLOT  = BAR_W + GAP;
+
+  // How many bars fit?
+  const maxBars  = Math.floor(W / SLOT);
+  const slice    = epochHistory.slice(-maxBars);
+  const chartMax = Math.max(...epochHistory.map(e => e.best), 1);
+  const usableH  = H - PAD_B - PAD_T;
+
+  slice.forEach((entry, i) => {
+    const x    = i * SLOT;
+    const bH   = Math.max(2, Math.round((entry.best / chartMax) * usableH));
+    const aH   = Math.max(1, Math.round((entry.avg  / chartMax) * usableH));
+    const isAT = entry.best === allTimeBest && allTimeBest > 0;
+
+    // Average bar (dimmed green)
+    chartCtx.fillStyle = '#1a4a1a';
+    chartCtx.fillRect(x, H - PAD_B - aH, BAR_W, aH);
+
+    // Best bar (bright green, gold if all-time best)
+    chartCtx.fillStyle = isAT ? '#ffc220' : activePalette.accent;
+    if (isAT) {
+      chartCtx.shadowColor = '#ffc220';
+      chartCtx.shadowBlur  = 6;
+    }
+    chartCtx.fillRect(x, H - PAD_B - bH, BAR_W, bH);
+    chartCtx.shadowBlur = 0;
+  });
+
+  // Axis baseline
+  chartCtx.strokeStyle = activePalette.accentDim;
+  chartCtx.lineWidth   = 1;
+  chartCtx.beginPath();
+  chartCtx.moveTo(0,   H - PAD_B);
+  chartCtx.lineTo(W,   H - PAD_B);
+  chartCtx.stroke();
+
+  // Labels
+  chartCtx.fillStyle = activePalette.accent;
+  chartCtx.font      = '8px Courier New';
+  chartCtx.fillText('MAX:' + chartMax, 2, PAD_T - 3);
+
+  const lastEpoch = epochHistory.length;
+  const firstShown = Math.max(1, lastEpoch - maxBars + 1);
+  chartCtx.fillStyle = activePalette.accentDim;
+  chartCtx.fillText('E' + firstShown, 0, H - 2);
+  chartCtx.fillText('E' + lastEpoch, W - 26, H - 2);
+}
+
+// ────────────────────────────────────────────────────────────
+// ANIMATION LOOP
+// ────────────────────────────────────────────────────────────
+
+// ────────────────────────────────────────────────────────────
+// DYNAMIC CANVAS RESIZE
+// ────────────────────────────────────────────────────────────
+
+/**
+ * Recompute COLS, ROWS and canvas pixel dimensions by measuring the
+ * actual #canvas-area container that CSS flex has already sized for us.
+ * This is guaranteed to be accurate — no brittle pixel-math guessing.
+ * Returns true if dimensions changed.
+ */
+function resizeCanvas() {
+  const area = document.getElementById('canvas-area');
+  const rect  = area.getBoundingClientRect();
+
+  const availW = Math.floor(rect.width);
+  const availH = Math.floor(rect.height);
+
+  const newCOLS = Math.max(20, Math.floor(availW / CELL_PX));
+  const newROWS = Math.max(20, Math.floor(availH / CELL_PX));
+
+  const changed = (newCOLS !== COLS || newROWS !== ROWS);
+  COLS = newCOLS;
+  ROWS = newROWS;
+  CELL = CELL_PX;
+
+  gridCanvas.width  = COLS * CELL;
+  gridCanvas.height = ROWS * CELL;
+
+  return changed;
+}
+
+/** Start (or restart) the display animation at the current fps setting. */
+function startAnimLoop() {
+  if (animHandle) clearInterval(animHandle);
+  const fps = parseInt(speedSlider.value, 10);
+  animHandle = setInterval(() => {
+    if (!displayGrid) return;
+    if (!simPaused) {
+      // Run stepsPerFrame simulation ticks before rendering once
+      for (let s = 0; s < stepsPerFrame; s++) {
+        stepGridInto(displayGrid, _nextGrid);
+        // Swap buffers — no allocation
+        const tmp = displayGrid;
+        displayGrid = _nextGrid;
+        _nextGrid   = tmp;
+        displayStep++;
+        // Early exit if colony died
+        if (countAlive(displayGrid) === 0) break;
+      }
+    }
+    drawGrid(displayGrid, displayStep);
+  }, 1000 / fps);
+}
+
+// ────────────────────────────────────────────────────────────
+// UI HELPERS
+// ────────────────────────────────────────────────────────────
+
+/** Update all stat readouts in the side panel. */
+function updateStats() {
+  statEpoch.textContent = epoch;
+  statBest.textContent  = bestLifespan > 0 ? bestLifespan : '–';
+  statAvg.textContent   = avgLifespan  > 0 ? avgLifespan  : '–';
+}
+
+/** Update the phase/status label below the grid. */
+function setPhase(msg) {
+  phaseLabel.textContent = msg;
+}
+
+/**
+ * Enable or disable action buttons.
+ * Reset is never disabled (always available).
+ */
+function setButtons(disabled) {
+  btnNext.disabled = disabled;
+  btnAuto.disabled = disabled;
+}
+
+/** Toggle the Auto-Evolve mode on/off. */
+function toggleAutoEvolve() {
+  if (autoRunning) {
+    // Stop auto-evolve
+    clearInterval(autoHandle);
+    autoHandle  = null;
+    autoRunning = false;
+    btnAuto.textContent  = 'AUTO-EVOLVE';
+    btnAuto.classList.remove('active');
+    btnNext.disabled = false;
+    setPhase('AUTO-EVOLVE PAUSED — EPOCH ' + epoch);
+  } else {
+    // Start auto-evolve — run an epoch immediately, then every 3.5 s
+    autoRunning = true;
+    btnAuto.textContent = 'STOP AUTO-EVOLVE';
+    btnAuto.classList.add('active');
+    btnNext.disabled = true;
+
+    const tick = () => {
+      if (!autoRunning) return;
+      runEpoch();
+    };
+    tick(); // run first epoch right away
+    autoHandle = setInterval(tick, 3500);
+  }
+}
+
+/** Reset everything back to epoch 0. */
+function reset() {
+  // Stop any running loops
+  if (autoHandle) { clearInterval(autoHandle); autoHandle = null; }
+  autoRunning = false;
+  btnAuto.textContent = 'AUTO-EVOLVE';
+  btnAuto.classList.remove('active');
+
+  // ── CHANGE 3: Reset pause state
+  simPaused = false;
+  btnPause.textContent = 'PAUSE SIM';
+  btnPause.classList.remove('active');
+
+  // ── CHANGE 1: Reset cyan map
+  cyanMap = new Float32Array(ROWS * COLS);
+  foodMap = new Float32Array(ROWS * COLS);
+  bombMap = new Float32Array(ROWS * COLS);
+
+  // Reset state
+  epoch        = 0;
+  epochHistory = [];
+  bestLifespan = 0;
+  avgLifespan  = 0;
+  allTimeBest  = 0;
+  displayStep  = 0;
+  activeSpecies     = 1;
+  nextColonySpecies = 2;
+  document.querySelectorAll('.sp-dot').forEach(d => d.classList.remove('sp-active'));
+  const dot1 = document.getElementById('sp-dot-1');
+  if (dot1) dot1.classList.add('sp-active');
+
+  // Reinitialise population and pick first display organism
+  initPopulation();
+  bestInitGrid = cloneGrid(population[0].grid);
+  displayGrid  = cloneGrid(bestInitGrid);
+  _nextGrid    = createGrid();
+  buildRenderBuffers();
+
+  // Refresh UI
+  updateStats();
+  statGen.textContent   = '0';
+  statAlive.textContent = '0';
+  drawChart();
+  setButtons(false);
+  setPhase('RESET — PRESS NEXT EPOCH OR AUTO-EVOLVE TO BEGIN');
+  startAnimLoop();
+}
+
+// ────────────────────────────────────────────────────────────
+// CHANGE 4: PRESET PATTERNS
+// ────────────────────────────────────────────────────────────
+const PATTERNS = {
+  glider: [[0,1],[1,2],[2,0],[2,1],[2,2]],
+  blinker: [[0,0],[0,1],[0,2]],
+  pulsar: [
+    [2,4],[2,5],[2,6],[2,10],[2,11],[2,12],
+    [4,2],[4,7],[4,9],[4,14],
+    [5,2],[5,7],[5,9],[5,14],
+    [6,2],[6,7],[6,9],[6,14],
+    [7,4],[7,5],[7,6],[7,10],[7,11],[7,12],
+    [9,4],[9,5],[9,6],[9,10],[9,11],[9,12],
+    [10,2],[10,7],[10,9],[10,14],
+    [11,2],[11,7],[11,9],[11,14],
+    [12,2],[12,7],[12,9],[12,14],
+    [14,4],[14,5],[14,6],[14,10],[14,11],[14,12],
+  ],
+  rpento: [[0,1],[0,2],[1,0],[1,1],[2,1]],
+  gosper: [
+    [0,24],[1,22],[1,24],[2,12],[2,13],[2,20],[2,21],[2,34],[2,35],
+    [3,11],[3,15],[3,20],[3,21],[3,34],[3,35],[4,0],[4,1],[4,10],[4,16],[4,20],[4,21],
+    [5,0],[5,1],[5,10],[5,14],[5,16],[5,17],[5,22],[5,24],[6,10],[6,16],[6,24],
+    [7,11],[7,15],[8,12],[8,13],
+  ],
+};
+
+btnInject.addEventListener('click', () => {
+  const key = patternSelect.value;
+  if (!key || !PATTERNS[key]) return;
+  if (!displayGrid) return;
+
+  const pattern = PATTERNS[key];
+  const maxR = Math.max(...pattern.map(p => p[0]));
+  const maxC = Math.max(...pattern.map(p => p[1]));
+  const originR = Math.floor((ROWS - maxR) / 2);
+  const originC = Math.floor((COLS - maxC) / 2);
+
+  // Add pattern ON TOP of existing cells (don't clear grid)
+  pattern.forEach(([dr, dc]) => {
+    const r = (originR + dr + ROWS) % ROWS;
+    const c = (originC + dc + COLS) % COLS;
+    displayGrid[r * COLS + c] = 1;
+  });
+
+  // Unpause if paused so user sees it animate immediately
+  if (simPaused) {
+    simPaused = false;
+    btnPause.textContent = 'PAUSE SIM';
+    btnPause.classList.remove('active');
+  }
+
+  setPhase('PATTERN INJECTED: ' + key.toUpperCase());
+});
+
+// ────────────────────────────────────────────────────────────
+// COLONY SPAWNING
+// ────────────────────────────────────────────────────────────
+
+/**
+ * Drop a random cluster of ~30 cells for the given species
+ * at a random location on the grid.
+ */
+function spawnColony(speciesId) {
+  if (!displayGrid) return;
+  const clusterSize = 28;
+  const cr = Math.floor(Math.random() * (ROWS - 20)) + 10;
+  const cc = Math.floor(Math.random() * (COLS - 20)) + 10;
+  let placed = 0;
+  // Random walk from centre — biased to stay tight
+  let rr = cr, rc = cc;
+  while (placed < clusterSize) {
+    const ni = idx(rr, rc);
+    if (!displayGrid[ni]) { displayGrid[ni] = speciesId; placed++; }
+    rr = ((rr + Math.floor(Math.random() * 3) - 1 + ROWS) % ROWS);
+    rc = ((rc + Math.floor(Math.random() * 3) - 1 + COLS) % COLS);
+  }
+  if (simPaused) {
+    simPaused = false;
+    btnPause.textContent = 'PAUSE SIM';
+    btnPause.classList.remove('active');
+  }
+  setPhase('COLONY SPAWNED: SPECIES ' + speciesId);
+}
+
+/** Update the per-species live-count scoreboard in the panel. */
+function updateScoreboard(spCounts) {
+  for (let s = 1; s <= 6; s++) {
+    const el = document.getElementById('sp-count-' + s);
+    if (el) el.textContent = spCounts[s] || 0;
+  }
+}
+
+// ────────────────────────────────────────────────────────────
+// EVENT LISTENERS
+// ────────────────────────────────────────────────────────────
+
+btnNext.addEventListener('click', () => {
+  if (!autoRunning) runEpoch();
+});
+
+btnAuto.addEventListener('click', () => {
+  toggleAutoEvolve();
+});
+
+btnReset.addEventListener('click', () => {
+  reset();
+});
+
+// ── CHANGE 3: Pause/Resume button
+btnPause.addEventListener('click', () => {
+  simPaused = !simPaused;
+  if (simPaused) {
+    btnPause.textContent = 'RESUME SIM';
+    btnPause.classList.add('active');
+  } else {
+    btnPause.textContent = 'PAUSE SIM';
+    btnPause.classList.remove('active');
+  }
+});
+
+speedSlider.addEventListener('input', () => {
+  const fps = parseInt(speedSlider.value, 10);
+  speedVal.textContent = fps + ' fps';
+  startAnimLoop();
+});
+
+const stepsSlider = document.getElementById('steps-slider');
+const stepsValEl  = document.getElementById('steps-val');
+stepsSlider.addEventListener('input', () => {
+  stepsPerFrame = parseInt(stepsSlider.value, 10);
+  stepsValEl.textContent = '\u00d7' + stepsPerFrame;
+});
+
+// ── CHANGE 2: Click-to-Draw / Click-to-Erase on Canvas
+
+function canvasToCellCoords(e) {
+  const rect   = gridCanvas.getBoundingClientRect();
+  const scaleX = gridCanvas.width  / rect.width;
+  const scaleY = gridCanvas.height / rect.height;
+  const col    = Math.floor((e.clientX - rect.left) * scaleX / CELL);
+  const row    = Math.floor((e.clientY - rect.top)  * scaleY / CELL);
+  return {
+    row: Math.max(0, Math.min(ROWS - 1, row)),
+    col: Math.max(0, Math.min(COLS - 1, col)),
+  };
+}
+
+function setCellFromEvent(e) {
+  if (!displayGrid) return;
+  const { row, col } = canvasToCellCoords(e);
+  const i = row * COLS + col;
+
+  if (activeTool === 'cell') {
+    for (let dr = -brushRadius; dr <= brushRadius; dr++) {
+      for (let dc = -brushRadius; dc <= brushRadius; dc++) {
+        const ni = idx(row + dr, col + dc);
+        displayGrid[ni] = drawMode === 'draw' ? activeSpecies : 0;
+      }
+    }
+  } else if (activeTool === 'food') {
+    for (let dr = -brushRadius; dr <= brushRadius; dr++) {
+      for (let dc = -brushRadius; dc <= brushRadius; dc++) {
+        const ni = idx(row + dr, col + dc);
+        // Stronger in center, softer at edges
+        const dist = Math.sqrt(dr*dr + dc*dc);
+        const strength = Math.max(0.25, 0.9 - dist * 0.18);
+        foodMap[ni] = Math.min(1.0, foodMap[ni] + strength);
+      }
+    }
+  } else if (activeTool === 'bomb') {
+    for (let dr = -brushRadius; dr <= brushRadius; dr++) {
+      for (let dc = -brushRadius; dc <= brushRadius; dc++) {
+        const ni = idx(row + dr, col + dc);
+        const dist = Math.sqrt(dr*dr + dc*dc);
+        const strength = Math.max(0.25, 0.9 - dist * 0.18);
+        bombMap[ni] = Math.min(1.0, bombMap[ni] + strength);
+      }
+    }
+  }
+}
+
+gridCanvas.addEventListener('mousedown', (e) => {
+  if (!displayGrid) return;
+  isDrawing = true;
+  const { row, col } = canvasToCellCoords(e);
+  // For cell tool, determine draw vs erase from cell state
+  // For food/bomb, always "paint"
+  drawMode = (activeTool === 'cell' && displayGrid[row * COLS + col]) ? 'erase' : 'draw';
+  setCellFromEvent(e);
+});
+
+gridCanvas.addEventListener('mousemove', (e) => {
+  if (isDrawing) setCellFromEvent(e);
+});
+
+gridCanvas.addEventListener('mouseup', () => {
+  isDrawing = false;
+  drawMode  = null;
+});
+
+gridCanvas.addEventListener('mouseleave', () => {
+  isDrawing = false;
+  drawMode  = null;
+});
+
+// ── Tool selector button listeners
+const btnToolCell = document.getElementById('btn-tool-cell');
+const btnToolFood = document.getElementById('btn-tool-food');
+const btnToolBomb = document.getElementById('btn-tool-bomb');
+const toolHint    = document.getElementById('tool-hint');
+
+const toolHints = {
+  cell: 'DRAG TO PAINT CELLS',
+  food: 'DRAG TO PAINT FOOD ZONES (BOOSTS GROWTH)',
+  bomb: 'DRAG TO PAINT POISON ZONES (KILLS CELLS)',
+};
+
+function setActiveTool(name) {
+  activeTool = name;
+  [btnToolCell, btnToolFood, btnToolBomb].forEach(b => b.classList.remove('active'));
+  ({ cell: btnToolCell, food: btnToolFood, bomb: btnToolBomb })[name].classList.add('active');
+  toolHint.textContent = toolHints[name];
+}
+
+btnToolCell.addEventListener('click', () => setActiveTool('cell'));
+btnToolFood.addEventListener('click', () => setActiveTool('food'));
+btnToolBomb.addEventListener('click', () => setActiveTool('bomb'));
+
+const brushSlider = document.getElementById('brush-slider');
+const brushVal    = document.getElementById('brush-val');
+
+const brushLabels = ['1×1', '3×3', '5×5', '7×7', '9×9', '11×11', '13×13'];
+
+brushSlider.addEventListener('input', () => {
+  brushRadius = parseInt(brushSlider.value, 10);
+  brushVal.textContent = brushLabels[brushRadius];
+});
+
+const themeSelect = document.getElementById('theme-select');
+themeSelect.addEventListener('change', () => {
+  applyTheme(themeSelect.value);
+});
+
+// Species selector dots
+for (let s = 1; s <= 6; s++) {
+  const dot = document.getElementById('sp-dot-' + s);
+  if (!dot) continue;
+  dot.addEventListener('click', () => {
+    activeSpecies = s;
+    document.querySelectorAll('.sp-dot').forEach(d => d.classList.remove('sp-active'));
+    dot.classList.add('sp-active');
+  });
+}
+
+// Spawn colony button
+const btnSpawn = document.getElementById('btn-spawn');
+if (btnSpawn) {
+  btnSpawn.addEventListener('click', () => {
+    spawnColony(nextColonySpecies);
+    // Select the spawned species so user can draw more of it
+    activeSpecies = nextColonySpecies;
+    document.querySelectorAll('.sp-dot').forEach(d => d.classList.remove('sp-active'));
+    const dot = document.getElementById('sp-dot-' + nextColonySpecies);
+    if (dot) dot.classList.add('sp-active');
+    // Advance to next species
+    nextColonySpecies = (nextColonySpecies % 6) + 1;
+    if (nextColonySpecies === 1) nextColonySpecies = 2; // skip species 1 (GA)
+  });
+}
+
+// ────────────────────────────────────────────────────────────
+// INITIALISE
+// ────────────────────────────────────────────────────────────
+
+(function init() {
+  // Defer canvas sizing until AFTER first browser layout paint so
+  // #canvas-area has its real flex-computed dimensions.
+  requestAnimationFrame(() => {
+    resizeCanvas();
+
+    // Reallocate maps to match true ROWS×COLS after resize
+    cyanMap = new Float32Array(ROWS * COLS);
+    foodMap = new Float32Array(ROWS * COLS);
+    bombMap = new Float32Array(ROWS * COLS);
+
+    initPopulation();
+    bestInitGrid = cloneGrid(population[0].grid);
+    displayGrid  = cloneGrid(bestInitGrid);
+    _nextGrid    = createGrid();
+
+    buildRenderBuffers();
+    drawChart();
+    startAnimLoop();
+    setPhase('READY — PRESS NEXT EPOCH OR AUTO-EVOLVE TO BEGIN');
+  });
+})();
+
+// Debounced resize: recompute grid dimensions and hard-reset the sim
+let _resizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(_resizeTimer);
+  _resizeTimer = setTimeout(() => {
+    const changed = resizeCanvas();
+    if (changed) {
+      // Dimensions changed — full sim reset so all typed arrays match new COLS×ROWS
+      reset();
+    } else {
+      // Same grid size, just rebuild the pixel buffer for the new canvas dimensions
+      buildRenderBuffers();
+    }
+  }, 120);
+});
+
+</script>
+</body>
+</html>
