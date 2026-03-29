@@ -324,9 +324,11 @@
   @media (max-width: 768px) {
     body {
       padding: 6px 8px 58px;
-      gap: 4px;
-      overflow: hidden;
-      height: 100dvh;
+      gap: 6px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      height: auto;
+      min-height: 100dvh;
     }
 
     header h1 { font-size: 1rem; }
@@ -335,21 +337,21 @@
     .layout {
       flex-direction: column;
       align-items: stretch;
-      gap: 0;
-      flex: 1;
-      overflow: hidden;
+      gap: 10px;
+      flex: none;
+      overflow: visible;
     }
 
     .grid-wrap {
-      flex: 1;
+      flex: none;
       width: 100%;
-      min-height: 0;
     }
 
     #canvas-area {
       width: 100%;
-      flex: 1;
-      min-height: 0;
+      height: auto;
+      aspect-ratio: 1 / 1;
+      max-height: 55dvh;
     }
 
     #grid-canvas {
@@ -361,6 +363,74 @@
 
     .panel {
       display: none;
+    }
+
+    /* Bigger touch targets */
+    button {
+      padding: 12px 14px;
+      font-size: 0.78rem;
+      min-height: 44px;
+    }
+
+    select {
+      min-height: 44px;
+      font-size: 0.75rem !important;
+      padding: 10px 8px !important;
+    }
+
+    /* Bigger species dots for touch */
+    .sp-dot {
+      width: 28px;
+      height: 28px;
+    }
+
+    /* Bigger slider thumbs */
+    input[type=range] {
+      height: 8px;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      width: 24px;
+      height: 24px;
+    }
+    input[type=range]::-moz-range-thumb {
+      width: 24px;
+      height: 24px;
+    }
+
+    /* Show section toggles on mobile */
+    .section-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #050505;
+      border: 1px solid color-mix(in srgb, var(--ac-dim) 30%, transparent);
+      color: var(--ac);
+      font-family: 'Courier New', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 0.15em;
+      padding: 10px 12px;
+      cursor: pointer;
+      width: 100%;
+      min-height: 40px;
+    }
+    .section-toggle::after {
+      content: '▼';
+      font-size: 0.6rem;
+      transition: transform 0.2s;
+    }
+    .section-toggle.open::after {
+      transform: rotate(180deg);
+    }
+
+    /* Hide titles inside sections on mobile (toggle replaces them) */
+    .mobile-section .title {
+      display: none;
+    }
+
+    /* Chart canvas responsive */
+    #chart-canvas {
+      width: 100%;
+      height: auto;
     }
 
     /* ===== MOBILE TOOLBAR ===== */
@@ -1558,17 +1628,17 @@ function resizeCanvas() {
   // On mobile, use smaller cell size to keep grid manageable
   let cellSize = CELL_PX;
   if (IS_MOBILE) {
-    // Target ~75x75 grid on mobile for smooth performance
-    cellSize = Math.max(4, Math.min(CELL_PX, Math.floor(Math.min(availW, availH) / 75)));
+    // Target ~80x80 grid on mobile
+    cellSize = Math.max(3, Math.min(CELL_PX, Math.floor(Math.min(availW, availH) / 80)));
   }
 
   let newCOLS = Math.max(20, Math.floor(availW / cellSize));
   let newROWS = Math.max(20, Math.floor(availH / cellSize));
 
-  // Cap mobile grid to 80x80 max for performance
+  // Cap mobile grid to ~100x100 max
   if (IS_MOBILE) {
-    newCOLS = Math.min(80, newCOLS);
-    newROWS = Math.min(80, newROWS);
+    newCOLS = Math.min(100, newCOLS);
+    newROWS = Math.min(100, newROWS);
   }
 
   const changed = (newCOLS !== COLS || newROWS !== ROWS || CELL !== cellSize);
