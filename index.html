@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <title>LIFE-EVOLVE // Conway + Genetic Algorithm</title>
 <style>
 :root {
@@ -39,7 +41,7 @@
   }
   header p {
     font-size: 0.6rem;
-    color: var(--ac-dim);
+    color: color-mix(in srgb, var(--ac) 60%, transparent);
     margin-top: 2px;
     letter-spacing: 0.15em;
   }
@@ -81,10 +83,13 @@
     background: var(--bg);
     cursor: crosshair;
     flex-shrink: 0;
+    touch-action: none;
+    will-change: transform;
   }
   #phase-label {
     font-size: 0.62rem;
-    color: var(--ac-dim);
+    color: var(--ac);
+    text-shadow: 0 0 4px color-mix(in srgb, var(--ac) 40%, transparent);
     text-align: center;
     letter-spacing: 0.12em;
     min-height: 1em;
@@ -114,7 +119,8 @@
   }
   .stats-box .title {
     font-size: 0.6rem;
-    color: var(--ac-dim);
+    color: var(--ac);
+    text-shadow: 0 0 5px color-mix(in srgb, var(--ac) 30%, transparent);
     letter-spacing: 0.2em;
     margin-bottom: 6px;
   }
@@ -127,7 +133,7 @@
     font-size: 0.75rem;
   }
   .stat-row:last-child { border-bottom: none; }
-  .stat-row .label { color: var(--ac-dim); }
+  .stat-row .label { color: color-mix(in srgb, var(--ac) 70%, transparent); }
   .stat-row .value {
     color: var(--ac);
     text-shadow: 0 0 6px var(--ac);
@@ -186,7 +192,7 @@
     flex-direction: column;
     gap: 6px;
   }
-  .slider-wrap .title { font-size: 0.6rem; color: var(--ac-dim); letter-spacing: 0.2em; }
+  .slider-wrap .title { font-size: 0.6rem; color: var(--ac); text-shadow: 0 0 5px color-mix(in srgb, var(--ac) 30%, transparent); letter-spacing: 0.2em; }
   .slider-row { display: flex; align-items: center; gap: 10px; }
   input[type=range] {
     flex: 1;
@@ -206,7 +212,7 @@
     flex-direction: column;
     gap: 6px;
   }
-  .chart-wrap .title { font-size: 0.6rem; color: var(--ac-dim); letter-spacing: 0.2em; }
+  .chart-wrap .title { font-size: 0.6rem; color: var(--ac); text-shadow: 0 0 5px color-mix(in srgb, var(--ac) 30%, transparent); letter-spacing: 0.2em; }
   #chart-canvas {
     display: block;
     background: #050505;
@@ -217,7 +223,7 @@
     gap: 12px;
     font-size: 0.58rem;
   }
-  .legend-item { display: flex; align-items: center; gap: 4px; color: var(--ac-dim); }
+  .legend-item { display: flex; align-items: center; gap: 4px; color: color-mix(in srgb, var(--ac) 70%, transparent); }
   .legend-dot { width: 8px; height: 8px; }
 
   /* ===== SCROLLBAR ===== */
@@ -237,6 +243,141 @@
   .sp-dot:hover  { transform: scale(1.25); }
   .sp-dot.sp-active { border-color: #fff; transform: scale(1.2); }
 
+  /* ===== COLLAPSIBLE SECTIONS (mobile) ===== */
+  .section-toggle {
+    display: none;
+  }
+
+  .section-body {
+    overflow: hidden;
+    transition: max-height 0.3s ease, opacity 0.2s ease;
+    max-height: 1000px;
+    opacity: 1;
+  }
+
+  .section-body.collapsed {
+    max-height: 0;
+    opacity: 0;
+  }
+
+  /* ===== MOBILE RESPONSIVE ===== */
+  @media (max-width: 768px) {
+    body {
+      padding: 6px 8px;
+      gap: 6px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      height: auto;
+      min-height: 100dvh;
+    }
+
+    header h1 { font-size: 1rem; }
+    header p { font-size: 0.5rem; display: none; }
+
+    .layout {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 10px;
+      flex: none;
+      overflow: visible;
+    }
+
+    .grid-wrap {
+      flex: none;
+      width: 100%;
+    }
+
+    #canvas-area {
+      width: 100%;
+      height: auto;
+      aspect-ratio: 1 / 1;
+      max-height: 55dvh;
+    }
+
+    #grid-canvas {
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    #draw-hint { display: none; }
+
+    .panel {
+      width: 100%;
+      flex-shrink: 1;
+      overflow-y: visible;
+      max-height: none;
+      gap: 8px;
+    }
+
+    /* Bigger touch targets */
+    button {
+      padding: 12px 14px;
+      font-size: 0.78rem;
+      min-height: 44px;
+    }
+
+    select {
+      min-height: 44px;
+      font-size: 0.75rem !important;
+      padding: 10px 8px !important;
+    }
+
+    /* Bigger species dots for touch */
+    .sp-dot {
+      width: 28px;
+      height: 28px;
+    }
+
+    /* Bigger slider thumbs */
+    input[type=range] {
+      height: 8px;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      width: 24px;
+      height: 24px;
+    }
+    input[type=range]::-moz-range-thumb {
+      width: 24px;
+      height: 24px;
+    }
+
+    /* Show section toggles on mobile */
+    .section-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #050505;
+      border: 1px solid color-mix(in srgb, var(--ac-dim) 30%, transparent);
+      color: var(--ac);
+      font-family: 'Courier New', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 0.15em;
+      padding: 10px 12px;
+      cursor: pointer;
+      width: 100%;
+      min-height: 40px;
+    }
+    .section-toggle::after {
+      content: '▼';
+      font-size: 0.6rem;
+      transition: transform 0.2s;
+    }
+    .section-toggle.open::after {
+      transform: rotate(180deg);
+    }
+
+    /* Hide titles inside sections on mobile (toggle replaces them) */
+    .mobile-section .title {
+      display: none;
+    }
+
+    /* Chart canvas responsive */
+    #chart-canvas {
+      width: 100%;
+      height: auto;
+    }
+  }
+
   /* ===== SPECIES SCOREBOARD ===== */
   .sp-score-row {
     display: flex; align-items: center; gap: 6px;
@@ -244,7 +385,7 @@
     padding: 2px 0;
   }
   .sp-pip  { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-  .sp-label { color: var(--ac-dim); flex: 1; letter-spacing: 0.08em; }
+  .sp-label { color: color-mix(in srgb, var(--ac) 70%, transparent); flex: 1; letter-spacing: 0.08em; }
   .sp-count { color: var(--ac); font-size: 0.75rem; min-width: 36px; text-align: right; }
 </style>
 </head>
@@ -262,15 +403,17 @@
       <canvas id="grid-canvas"></canvas>
     </div>
     <div id="phase-label">INITIALISING...</div>
-    <div id="draw-hint" style="font-size:0.55rem; color:#1a5c0a; text-align:center; letter-spacing:0.1em;">CELL TOOL: CLICK/DRAG TO DRAW &middot; SELECT FOOD OR BOMB IN PANEL</div>
+    <div id="draw-hint" style="font-size:0.55rem; color:color-mix(in srgb, var(--ac) 60%, transparent); text-align:center; letter-spacing:0.1em;">CELL TOOL: CLICK/DRAG TO DRAW &middot; SELECT FOOD OR BOMB IN PANEL</div>
   </div>
 
   <!-- SIDE PANEL -->
   <div class="panel">
 
     <!-- STATS -->
+    <div class="mobile-section" data-section="stats">
+    <button class="section-toggle" data-target="stats">// STATISTICS</button>
+    <div class="section-body" data-name="stats">
     <div class="stats-box">
-      <div class="title">// STATISTICS</div>
       <div class="stat-row">
         <span class="label">EPOCH</span>
         <span class="value" id="stat-epoch">0</span>
@@ -292,6 +435,13 @@
         <span class="value" id="stat-alive">0</span>
       </div>
     </div>
+    </div><!-- /section-body -->
+    </div><!-- /mobile-section -->
+
+    <!-- TOOLS (inject, theme, colonies, draw) -->
+    <div class="mobile-section" data-section="tools">
+    <button class="section-toggle" data-target="tools">// TOOLS &amp; DRAW</button>
+    <div class="section-body" data-name="tools">
 
     <!-- INJECT PATTERN -->
     <div class="slider-wrap" id="pattern-wrap">
@@ -328,12 +478,12 @@
     <div class="slider-wrap">
       <div class="title">// COLONIES</div>
       <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-bottom:6px;">
-        <span style="font-size:0.58rem; color:var(--ac-dim); letter-spacing:0.1em;">DRAW AS:</span>
+        <span style="font-size:0.58rem; color:color-mix(in srgb, var(--ac) 70%, transparent); letter-spacing:0.1em;">DRAW AS:</span>
         <div id="sp-dot-1" class="sp-dot sp-active" title="Species 1 (GA)" style="background:#39ff14; box-shadow:0 0 5px #39ff14;"></div>
         <div id="sp-dot-2" class="sp-dot" title="Species 2" style="background:#ff2200; box-shadow:0 0 5px #ff2200;"></div>
         <div id="sp-dot-3" class="sp-dot" title="Species 3" style="background:#0066ff; box-shadow:0 0 5px #0066ff;"></div>
         <div id="sp-dot-4" class="sp-dot" title="Species 4" style="background:#cc00ff; box-shadow:0 0 5px #cc00ff;"></div>
-        <div id="sp-dot-5" class="sp-dot" title="Species 5" style="background:#ffcc00; box-shadow:0 0 5px #ffcc00;"></div>
+        <div id="sp-dot-5" class="sp-dot" title="Species 5" style="background:#ff6600; box-shadow:0 0 5px #ff6600;"></div>
         <div id="sp-dot-6" class="sp-dot" title="Species 6" style="background:#00e8b4; box-shadow:0 0 5px #00e8b4;"></div>
       </div>
       <button id="btn-spawn" style="margin-bottom:4px;">▶ SPAWN NEXT COLONY</button>
@@ -343,7 +493,7 @@
         <div class="sp-score-row"><span class="sp-pip" style="background:#ff2200;"></span><span class="sp-label">SP 2</span><span id="sp-count-2" class="sp-count">0</span></div>
         <div class="sp-score-row"><span class="sp-pip" style="background:#0066ff;"></span><span class="sp-label">SP 3</span><span id="sp-count-3" class="sp-count">0</span></div>
         <div class="sp-score-row"><span class="sp-pip" style="background:#cc00ff;"></span><span class="sp-label">SP 4</span><span id="sp-count-4" class="sp-count">0</span></div>
-        <div class="sp-score-row"><span class="sp-pip" style="background:#ffcc00;"></span><span class="sp-label">SP 5</span><span id="sp-count-5" class="sp-count">0</span></div>
+        <div class="sp-score-row"><span class="sp-pip" style="background:#ff6600;"></span><span class="sp-label">SP 5</span><span id="sp-count-5" class="sp-count">0</span></div>
         <div class="sp-score-row"><span class="sp-pip" style="background:#00e8b4;"></span><span class="sp-label">SP 6</span><span id="sp-count-6" class="sp-count">0</span></div>
       </div>
     </div>
@@ -357,12 +507,15 @@
         <button id="btn-tool-bomb"  style="width:auto; padding:6px 10px; color:#ff3c5a; border-color:#ff3c5a66;">BOMB</button>
       </div>
       <div class="slider-row" style="margin-top:6px;">
-        <span style="font-size:0.6rem; color:#2a8c0a; letter-spacing:0.1em; white-space:nowrap;">BRUSH SIZE</span>
+        <span style="font-size:0.6rem; color:color-mix(in srgb, var(--ac) 60%, transparent); letter-spacing:0.1em; white-space:nowrap;">BRUSH SIZE</span>
         <input type="range" id="brush-slider" min="0" max="5" value="1" style="flex:1; margin: 0 8px;">
         <span class="speed-val" id="brush-val">3×3</span>
       </div>
-      <div id="tool-hint" style="font-size:0.55rem; color:#2a8c0a; letter-spacing:0.08em; margin-top:4px;">DRAG TO PAINT CELLS</div>
+      <div id="tool-hint" style="font-size:0.55rem; color:color-mix(in srgb, var(--ac) 60%, transparent); letter-spacing:0.08em; margin-top:4px;">DRAG TO PAINT CELLS</div>
     </div>
+
+    </div><!-- /section-body tools -->
+    </div><!-- /mobile-section tools -->
 
     <!-- CONTROLS -->
     <div class="btn-group">
@@ -373,6 +526,9 @@
     </div>
 
     <!-- SPEED -->
+    <div class="mobile-section" data-section="speed">
+    <button class="section-toggle" data-target="speed">// SPEED SETTINGS</button>
+    <div class="section-body" data-name="speed">
     <div class="slider-wrap">
       <div class="title">// PLAYBACK SPEED</div>
       <div class="slider-row">
@@ -390,7 +546,13 @@
       </div>
     </div>
 
+    </div><!-- /section-body speed -->
+    </div><!-- /mobile-section speed -->
+
     <!-- CHART -->
+    <div class="mobile-section" data-section="chart">
+    <button class="section-toggle" data-target="chart">// LIFESPAN HISTORY</button>
+    <div class="section-body" data-name="chart">
     <div class="chart-wrap">
       <div class="title">// LIFESPAN HISTORY</div>
       <canvas id="chart-canvas" width="244" height="110"></canvas>
@@ -403,6 +565,8 @@
         </div>
       </div>
     </div>
+    </div><!-- /section-body chart -->
+    </div><!-- /mobile-section chart -->
 
   </div><!-- /panel -->
 </div><!-- /layout -->
@@ -420,13 +584,13 @@ const CELL_PX     = 5;       // fixed pixel size per cell
 let   COLS        = 150;     // grid width (cells) — recalculated on resize
 let   ROWS        = 150;     // grid height (cells) — recalculated on resize
 let   CELL        = CELL_PX; // alias used throughout (same as CELL_PX)
-const POP_SIZE    = 20;      // organisms per epoch
+let   POP_SIZE    = 20;      // organisms per epoch
 const MAX_GENS       = 500;   // max simulation steps per organism (GA evaluation)
 const DISPLAY_MAX_GENS = 4000; // max steps before display loops back
 const STABLE_THRESH  = 30;    // steps with unchanged hash = stabilised
 const INIT_FILL   = 0.30;    // initial random cell density (~30%)
 const MUTATION_RATE = 0.02;  // probability of flipping each cell on mutation
-const TOP_HALF    = POP_SIZE / 2;  // survivors selected per epoch = 10
+let   TOP_HALF    = POP_SIZE / 2;  // survivors selected per epoch = 10
 
 // ────────────────────────────────────────────────────────────
 // COLOR THEMES
@@ -509,7 +673,7 @@ const SPECIES_PALETTES = [
   { low: [50,  0,   0],   mid: [255, 30,  0],   high: [255, 200, 120] }, // 2 fire-red
   { low: [0,   5,   55],  mid: [0,   90,  255],  high: [140, 230, 255] }, // 3 electric-blue
   { low: [45,  0,   65],  mid: [210, 0,   255],  high: [255, 170, 255] }, // 4 violet
-  { low: [55,  45,  0],   mid: [255, 210, 0],   high: [255, 255, 170] }, // 5 solar-yellow
+  { low: [255, 60,  0],   mid: [255, 180, 0],   high: [255, 255, 160] }, // 5 orange-yellow
   { low: [0,   45,  40],  mid: [0,   230, 185],  high: [180, 255, 240] }, // 6 teal
 ];
 
@@ -520,7 +684,7 @@ const SPECIES_ACCENTS = [
   '#ff2200',
   '#0066ff',
   '#cc00ff',
-  '#ffcc00',
+  '#ff6600',
   '#00e8b4',
 ];
 
@@ -1134,7 +1298,7 @@ function drawGrid(g, step) {
   const W    = gridCanvas.width;
   const H    = gridCanvas.height;
   const BG   = packRGB(p.bg[0], p.bg[1], p.bg[2]);
-  const CELL = CELL_PX;
+  const CZ   = CELL;  // current cell size (may differ from CELL_PX on mobile)
 
   const density = computeDensity(g);
   updateCyanMap(g, density);
@@ -1191,11 +1355,11 @@ function drawGrid(g, step) {
 
       const packed32 = (255 << 24) | (pb << 16) | (pg << 8) | pr;
 
-      // Write CELL×CELL pixels for this cell (leaving 1px dark border)
-      const x0 = c * CELL + 1;
-      const y0 = r * CELL + 1;
-      const x1 = x0 + CELL - 2;
-      const y1 = y0 + CELL - 2;
+      // Write CZ×CZ pixels for this cell (leaving 1px dark border)
+      const x0 = c * CZ + 1;
+      const y0 = r * CZ + 1;
+      const x1 = x0 + CZ - 2;
+      const y1 = y0 + CZ - 2;
       for (let py = y0; py < y1 && py < H; py++) {
         const rowBase = py * W;
         for (let px = x0; px < x1 && px < W; px++) {
@@ -1302,13 +1466,26 @@ function resizeCanvas() {
   const availW = Math.floor(rect.width);
   const availH = Math.floor(rect.height);
 
-  const newCOLS = Math.max(20, Math.floor(availW / CELL_PX));
-  const newROWS = Math.max(20, Math.floor(availH / CELL_PX));
+  // On mobile, use smaller cell size to keep grid manageable
+  let cellSize = CELL_PX;
+  if (IS_MOBILE) {
+    // Target ~80x80 grid on mobile
+    cellSize = Math.max(3, Math.min(CELL_PX, Math.floor(Math.min(availW, availH) / 80)));
+  }
 
-  const changed = (newCOLS !== COLS || newROWS !== ROWS);
+  let newCOLS = Math.max(20, Math.floor(availW / cellSize));
+  let newROWS = Math.max(20, Math.floor(availH / cellSize));
+
+  // Cap mobile grid to ~100x100 max
+  if (IS_MOBILE) {
+    newCOLS = Math.min(100, newCOLS);
+    newROWS = Math.min(100, newROWS);
+  }
+
+  const changed = (newCOLS !== COLS || newROWS !== ROWS || CELL !== cellSize);
   COLS = newCOLS;
   ROWS = newROWS;
-  CELL = CELL_PX;
+  CELL = cellSize;
 
   gridCanvas.width  = COLS * CELL;
   gridCanvas.height = ROWS * CELL;
@@ -1711,6 +1888,140 @@ if (btnSpawn) {
 }
 
 // ────────────────────────────────────────────────────────────
+// MOBILE: COLLAPSIBLE SECTIONS
+// ────────────────────────────────────────────────────────────
+
+const IS_MOBILE = window.matchMedia('(max-width: 768px)').matches;
+
+function initCollapsibleSections() {
+  if (!IS_MOBILE) return;
+
+  // Default: collapse stats, tools, speed, chart. Controls stay visible (no wrapper).
+  const defaultCollapsed = ['stats', 'tools', 'speed', 'chart'];
+
+  document.querySelectorAll('.section-toggle').forEach(btn => {
+    const target = btn.dataset.target;
+    const body = document.querySelector(`.section-body[data-name="${target}"]`);
+    if (!body) return;
+
+    // Collapse by default
+    if (defaultCollapsed.includes(target)) {
+      body.classList.add('collapsed');
+    } else {
+      btn.classList.add('open');
+    }
+
+    btn.addEventListener('click', () => {
+      const isCollapsed = body.classList.contains('collapsed');
+      if (isCollapsed) {
+        body.classList.remove('collapsed');
+        btn.classList.add('open');
+      } else {
+        body.classList.add('collapsed');
+        btn.classList.remove('open');
+      }
+    });
+  });
+}
+
+// ────────────────────────────────────────────────────────────
+// MOBILE: TOUCH EVENT SUPPORT
+// ────────────────────────────────────────────────────────────
+
+function touchToCell(touch) {
+  const rect = gridCanvas.getBoundingClientRect();
+  const scaleX = gridCanvas.width / rect.width;
+  const scaleY = gridCanvas.height / rect.height;
+  const col = Math.floor((touch.clientX - rect.left) * scaleX / CELL);
+  const row = Math.floor((touch.clientY - rect.top) * scaleY / CELL);
+  return {
+    row: Math.max(0, Math.min(ROWS - 1, row)),
+    col: Math.max(0, Math.min(COLS - 1, col)),
+  };
+}
+
+function setCellFromTouch(touch) {
+  if (!displayGrid) return;
+  const { row, col } = touchToCell(touch);
+
+  if (activeTool === 'cell') {
+    for (let dr = -brushRadius; dr <= brushRadius; dr++) {
+      for (let dc = -brushRadius; dc <= brushRadius; dc++) {
+        const ni = idx(row + dr, col + dc);
+        displayGrid[ni] = drawMode === 'draw' ? activeSpecies : 0;
+      }
+    }
+  } else if (activeTool === 'food') {
+    for (let dr = -brushRadius; dr <= brushRadius; dr++) {
+      for (let dc = -brushRadius; dc <= brushRadius; dc++) {
+        const ni = idx(row + dr, col + dc);
+        const dist = Math.sqrt(dr * dr + dc * dc);
+        const strength = Math.max(0.25, 0.9 - dist * 0.18);
+        foodMap[ni] = Math.min(1.0, foodMap[ni] + strength);
+      }
+    }
+  } else if (activeTool === 'bomb') {
+    for (let dr = -brushRadius; dr <= brushRadius; dr++) {
+      for (let dc = -brushRadius; dc <= brushRadius; dc++) {
+        const ni = idx(row + dr, col + dc);
+        const dist = Math.sqrt(dr * dr + dc * dc);
+        const strength = Math.max(0.25, 0.9 - dist * 0.18);
+        bombMap[ni] = Math.min(1.0, bombMap[ni] + strength);
+      }
+    }
+  }
+}
+
+gridCanvas.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  if (!displayGrid) return;
+  const touch = e.touches[0];
+  isDrawing = true;
+  const { row, col } = touchToCell(touch);
+  drawMode = (activeTool === 'cell' && displayGrid[row * COLS + col]) ? 'erase' : 'draw';
+  setCellFromTouch(touch);
+}, { passive: false });
+
+gridCanvas.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  if (!isDrawing) return;
+  setCellFromTouch(e.touches[0]);
+}, { passive: false });
+
+gridCanvas.addEventListener('touchend', (e) => {
+  e.preventDefault();
+  isDrawing = false;
+  drawMode = null;
+}, { passive: false });
+
+gridCanvas.addEventListener('touchcancel', () => {
+  isDrawing = false;
+  drawMode = null;
+});
+
+// ────────────────────────────────────────────────────────────
+// MOBILE: DYNAMIC GRID SIZING & PERFORMANCE
+// ────────────────────────────────────────────────────────────
+
+/** Detect mobile and apply performance defaults. */
+function applyMobileDefaults() {
+  if (!IS_MOBILE) return;
+
+  // Reduce GA population for faster epochs
+  POP_SIZE = 10;
+  TOP_HALF = POP_SIZE / 2;
+
+  // Lower default FPS
+  speedSlider.value = 6;
+  speedVal.textContent = '6 fps';
+
+  // Lower sim steps
+  stepsPerFrame = 1;
+  stepsSlider.value = 1;
+  stepsValEl.textContent = '\u00d71';
+}
+
+// ────────────────────────────────────────────────────────────
 // INITIALISE
 // ────────────────────────────────────────────────────────────
 
@@ -1718,7 +2029,15 @@ if (btnSpawn) {
   // Defer canvas sizing until AFTER first browser layout paint so
   // #canvas-area has its real flex-computed dimensions.
   requestAnimationFrame(() => {
+    initCollapsibleSections();
+    applyMobileDefaults();
     resizeCanvas();
+
+    // Update header subtitle with actual grid size
+    const subtitle = document.querySelector('header p');
+    if (subtitle) {
+      subtitle.innerHTML = `CONWAY'S GAME OF LIFE &bull; GENETIC ALGORITHM &bull; TOROIDAL ${COLS}&times;${ROWS}`;
+    }
 
     // Reallocate maps to match true ROWS×COLS after resize
     cyanMap = new Float32Array(ROWS * COLS);
