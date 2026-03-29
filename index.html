@@ -2056,11 +2056,19 @@ function applyMobileDefaults() {
   });
 })();
 
-// Debounced resize: recompute grid dimensions and hard-reset the sim
+// Debounced resize: recompute grid dimensions and hard-reset the sim.
+// On mobile, ignore height-only changes caused by the address bar showing/hiding.
 let _resizeTimer = null;
+let _lastResizeW = window.innerWidth;
 window.addEventListener('resize', () => {
   clearTimeout(_resizeTimer);
   _resizeTimer = setTimeout(() => {
+    const widthChanged = (window.innerWidth !== _lastResizeW);
+    _lastResizeW = window.innerWidth;
+
+    // On mobile, skip resize if only height changed (address bar toggle)
+    if (IS_MOBILE && !widthChanged) return;
+
     const changed = resizeCanvas();
     if (changed) {
       // Dimensions changed — full sim reset so all typed arrays match new COLS×ROWS
