@@ -320,8 +320,7 @@
     flex-shrink: 0;
   }
 
-  /* ===== MOBILE RESPONSIVE ===== */
-  @media (max-width: 768px) {
+  /* ===== MOBILE LAYOUT (ALWAYS ACTIVE) ===== */
     body {
       padding: 0;
       gap: 0;
@@ -482,7 +481,7 @@
       box-shadow: 0 0 10px color-mix(in srgb, var(--ac) 50%, transparent);
       background: rgba(255,255,255,0.05);
     }
-  }
+
 
   /* ===== SPECIES SCOREBOARD ===== */
   .sp-score-row {
@@ -2075,7 +2074,7 @@ if (btnSpawn) {
 // MOBILE: COLLAPSIBLE SECTIONS
 // ────────────────────────────────────────────────────────────
 
-const IS_MOBILE = window.matchMedia('(max-width: 768px)').matches;
+const IS_MOBILE = true;
 
 function initCollapsibleSections() {
   if (!IS_MOBILE) return;
