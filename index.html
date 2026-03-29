@@ -674,12 +674,10 @@
 <!-- MOBILE BOTTOM TOOLBAR -->
 <div class="mobile-toolbar" id="mobile-toolbar">
   <button class="tb-btn" id="tb-play" title="Play/Pause">▶️</button>
-  <button class="tb-btn" id="tb-fast" title="Fast Mode">⏩</button>
-  <button class="tb-btn tb-active" id="tb-cell" title="Cell Tool">🧫</button>
+  <button class="tb-btn tb-active" id="tb-dna" title="Cell / Spawn">🧬</button>
   <button class="tb-btn" id="tb-food" title="Food Tool">🍎</button>
   <button class="tb-btn" id="tb-bomb" title="Bomb Tool">💣</button>
   <button class="tb-btn" id="tb-theme" title="Theme">🎨</button>
-  <button class="tb-btn" id="tb-spawn" title="Spawn Colony">🧬</button>
   <button class="tb-btn" id="tb-reset" title="Reset">🔄</button>
 </div>
 
@@ -2209,108 +2207,90 @@ function applyMobileDefaults() {
 
 (function initMobileToolbar() {
   const tbPlay  = document.getElementById('tb-play');
-  const tbFast  = document.getElementById('tb-fast');
-  const tbCell  = document.getElementById('tb-cell');
+  const tbDna   = document.getElementById('tb-dna');
   const tbFood  = document.getElementById('tb-food');
   const tbBomb  = document.getElementById('tb-bomb');
   const tbTheme = document.getElementById('tb-theme');
-  const tbSpawn = document.getElementById('tb-spawn');
   const tbReset = document.getElementById('tb-reset');
   const overlay = document.getElementById('theme-overlay');
 
   if (!tbPlay) return; // no toolbar in DOM
 
-  // Species accent colors for spawn button glow
+  const toolBtns = [tbDna, tbFood, tbBomb];
+
+  // Species accent colors for glow — shows what WILL spawn on next tap
   const spawnAccents = { 2: '#ff2200', 3: '#0066ff', 4: '#cc00ff', 5: '#ff6600', 6: '#00e8b4' };
 
-  function updateSpawnGlow() {
+  function updateDnaGlow() {
+    if (activeTool !== 'cell') {
+      tbDna.style.borderColor = '';
+      tbDna.style.boxShadow = '';
+      return;
+    }
     const color = spawnAccents[nextColonySpecies] || '#ff2200';
-    tbSpawn.style.borderColor = color;
-    tbSpawn.style.boxShadow = '0 0 10px ' + color;
+    tbDna.style.borderColor = color;
+    tbDna.style.boxShadow = '0 0 10px ' + color;
   }
 
-  // Tool buttons — highlight active
   function setToolbarTool(name, btn) {
     setActiveTool(name);
-    [tbCell, tbFood, tbBomb].forEach(b => b.classList.remove('tb-active'));
+    toolBtns.forEach(b => { b.classList.remove('tb-active'); b.style.borderColor = ''; b.style.boxShadow = ''; });
     btn.classList.add('tb-active');
+    updateDnaGlow();
   }
 
   // Play/Pause
   tbPlay.addEventListener('click', () => {
     simPaused = !simPaused;
     tbPlay.textContent = simPaused ? '▶️' : '⏸️';
-    // Sync desktop button
     btnPause.textContent = simPaused ? 'RESUME SIM' : 'PAUSE SIM';
     simPaused ? btnPause.classList.add('active') : btnPause.classList.remove('active');
   });
 
-  // Fast mode toggle
-  let fastMode = false;
-  tbFast.addEventListener('click', () => {
-    fastMode = !fastMode;
-    stepsPerFrame = fastMode ? 3 : 1;
-    tbFast.classList.toggle('tb-active', fastMode);
-    // Sync desktop slider
-    stepsSlider.value = stepsPerFrame;
-    stepsValEl.textContent = '\u00d7' + stepsPerFrame;
+  // 🧬 DNA button — cell tool + spawn combo
+  // If cell tool already active → spawn colony. Otherwise → select cell tool.
+  tbDna.addEventListener('click', () => {
+    if (activeTool === 'cell') {
+      // Spawn colony with current nextColonySpecies
+      spawnColony(nextColonySpecies);
+      activeSpecies = nextColonySpecies;
+      document.querySelectorAll('.sp-dot').forEach(d => d.classList.remove('sp-active'));
+      const dot = document.getElementById('sp-dot-' + nextColonySpecies);
+      if (dot) dot.classList.add('sp-active');
+      // Advance THEN update glow — glow always shows what next tap will spawn
+      nextColonySpecies = (nextColonySpecies % 6) + 1;
+      if (nextColonySpecies === 1) nextColonySpecies = 2;
+      updateDnaGlow();
+    } else {
+      setToolbarTool('cell', tbDna);
+    }
   });
 
-  // Tool selectors
-  tbCell.addEventListener('click', () => setToolbarTool('cell', tbCell));
   tbFood.addEventListener('click', () => setToolbarTool('food', tbFood));
   tbBomb.addEventListener('click', () => setToolbarTool('bomb', tbBomb));
 
   // Theme popup
-  tbTheme.addEventListener('click', () => {
-    overlay.classList.add('open');
-  });
-
-  // Close on backdrop click
+  tbTheme.addEventListener('click', () => overlay.classList.add('open'));
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) overlay.classList.remove('open');
   });
-
-  // Theme options
   overlay.querySelectorAll('.theme-option').forEach(opt => {
     opt.addEventListener('click', () => {
-      const key = opt.dataset.theme;
-      applyTheme(key);
-      // Sync desktop select
-      themeSelect.value = key;
+      applyTheme(opt.dataset.theme);
+      themeSelect.value = opt.dataset.theme;
       overlay.classList.remove('open');
     });
-  });
-
-  // Spawn colony — cycle species
-  updateSpawnGlow();
-  tbSpawn.addEventListener('click', () => {
-    spawnColony(nextColonySpecies);
-    activeSpecies = nextColonySpecies;
-    // Update desktop species dots
-    document.querySelectorAll('.sp-dot').forEach(d => d.classList.remove('sp-active'));
-    const dot = document.getElementById('sp-dot-' + nextColonySpecies);
-    if (dot) dot.classList.add('sp-active');
-    // Advance species
-    nextColonySpecies = (nextColonySpecies % 6) + 1;
-    if (nextColonySpecies === 1) nextColonySpecies = 2;
-    updateSpawnGlow();
   });
 
   // Reset
   tbReset.addEventListener('click', () => {
     reset();
-    // Reset toolbar state
     tbPlay.textContent = '▶️';
-    fastMode = false;
-    stepsPerFrame = 1;
-    tbFast.classList.remove('tb-active');
-    setToolbarTool('cell', tbCell);
-    updateSpawnGlow();
+    setToolbarTool('cell', tbDna);
   });
 
-  // Start unpaused — show pause icon
-  // (will be set correctly when play is tapped)
+  // Init glow
+  updateDnaGlow();
 })();
 
 // ────────────────────────────────────────────────────────────
