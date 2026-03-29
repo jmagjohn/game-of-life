@@ -991,24 +991,31 @@ const _spCount = new Int32Array(7); // index = species id 1-6
  * Food/bomb zones apply as before.
  */
 function stepGridInto(g, dest) {
-  for (let r = 0; r < ROWS; r++) {
-    for (let c = 0; c < COLS; c++) {
-      const i     = idx(r, c);
+  const R = ROWS, C = COLS;
+  for (let r = 0; r < R; r++) {
+    const rm1 = ((r - 1 + R) % R) * C;
+    const r0  = r * C;
+    const rp1 = ((r + 1) % R) * C;
+    for (let c = 0; c < C; c++) {
+      const i     = r0 + c;
       const self  = g[i];          // 0 = dead, 1-6 = species
       const food  = foodMap[i];
       const bomb  = bombMap[i];
 
-      // Count neighbours by species
+      const cm1 = (c - 1 + C) % C;
+      const cp1 = (c + 1) % C;
+
+      // Count neighbours by species (inlined toroidal)
       _spCount.fill(0);
       let total = 0;
-      const n0 = g[idx(r-1, c-1)]; if (n0) { _spCount[n0]++; total++; }
-      const n1 = g[idx(r-1, c  )]; if (n1) { _spCount[n1]++; total++; }
-      const n2 = g[idx(r-1, c+1)]; if (n2) { _spCount[n2]++; total++; }
-      const n3 = g[idx(r,   c-1)]; if (n3) { _spCount[n3]++; total++; }
-      const n4 = g[idx(r,   c+1)]; if (n4) { _spCount[n4]++; total++; }
-      const n5 = g[idx(r+1, c-1)]; if (n5) { _spCount[n5]++; total++; }
-      const n6 = g[idx(r+1, c  )]; if (n6) { _spCount[n6]++; total++; }
-      const n7 = g[idx(r+1, c+1)]; if (n7) { _spCount[n7]++; total++; }
+      const n0 = g[rm1 + cm1]; if (n0) { _spCount[n0]++; total++; }
+      const n1 = g[rm1 + c  ]; if (n1) { _spCount[n1]++; total++; }
+      const n2 = g[rm1 + cp1]; if (n2) { _spCount[n2]++; total++; }
+      const n3 = g[r0  + cm1]; if (n3) { _spCount[n3]++; total++; }
+      const n4 = g[r0  + cp1]; if (n4) { _spCount[n4]++; total++; }
+      const n5 = g[rp1 + cm1]; if (n5) { _spCount[n5]++; total++; }
+      const n6 = g[rp1 + c  ]; if (n6) { _spCount[n6]++; total++; }
+      const n7 = g[rp1 + cp1]; if (n7) { _spCount[n7]++; total++; }
 
       if (bomb > 0.2) {
         dest[i] = 0;
@@ -1299,19 +1306,34 @@ function lerpColor(c1, c2, t) {
 /**
  * For each cell, count ALIVE cells within a radius-2 neighbourhood
  * (5×5 area = 24 surrounding cells, excluding the cell itself).
+ * Inlined toroidal wrapping for performance (avoids idx() overhead).
  */
 function computeDensity(g) {
   const density = new Uint8Array(ROWS * COLS);
-  for (let r = 0; r < ROWS; r++) {
-    for (let c = 0; c < COLS; c++) {
+  const R = ROWS, C = COLS;
+  for (let r = 0; r < R; r++) {
+    // Precompute wrapped row offsets
+    const rm2 = ((r - 2 + R) % R) * C;
+    const rm1 = ((r - 1 + R) % R) * C;
+    const r0  = r * C;
+    const rp1 = ((r + 1) % R) * C;
+    const rp2 = ((r + 2) % R) * C;
+    const rowOffsets = [rm2, rm1, r0, rp1, rp2];
+    for (let c = 0; c < C; c++) {
       let count = 0;
-      for (let dr = -2; dr <= 2; dr++) {
-        for (let dc = -2; dc <= 2; dc++) {
-          if (dr === 0 && dc === 0) continue;
-          count += g[idx(r + dr, c + dc)];
+      const cm2 = (c - 2 + C) % C;
+      const cm1 = (c - 1 + C) % C;
+      const cp1 = (c + 1) % C;
+      const cp2 = (c + 2) % C;
+      const cols = [cm2, cm1, c, cp1, cp2];
+      for (let ri = 0; ri < 5; ri++) {
+        const ro = rowOffsets[ri];
+        for (let ci = 0; ci < 5; ci++) {
+          if (ri === 2 && ci === 2) continue; // skip self
+          if (g[ro + cols[ci]]) count++;       // count alive (any species)
         }
       }
-      density[r * COLS + c] = count;
+      density[r0 + c] = count;
     }
   }
   return density;
@@ -1320,7 +1342,7 @@ function computeDensity(g) {
 /** Update the cyan-flash map (high-density alive cells randomly ignite). */
 function updateCyanMap(g, density) {
   for (let i = 0; i < g.length; i++) {
-    if (g[i] === 1 && density[i] >= 7) {
+    if (g[i] && density[i] >= 7) {
       if (Math.random() < 0.004) {
         cyanMap[i] = Math.min(1.0, cyanMap[i] + 0.6 + Math.random() * 0.4);
       }
@@ -1536,17 +1558,17 @@ function resizeCanvas() {
   // On mobile, use smaller cell size to keep grid manageable
   let cellSize = CELL_PX;
   if (IS_MOBILE) {
-    // Target ~80x80 grid on mobile
-    cellSize = Math.max(3, Math.min(CELL_PX, Math.floor(Math.min(availW, availH) / 80)));
+    // Target ~75x75 grid on mobile for smooth performance
+    cellSize = Math.max(4, Math.min(CELL_PX, Math.floor(Math.min(availW, availH) / 75)));
   }
 
   let newCOLS = Math.max(20, Math.floor(availW / cellSize));
   let newROWS = Math.max(20, Math.floor(availH / cellSize));
 
-  // Cap mobile grid to ~100x100 max
+  // Cap mobile grid to 80x80 max for performance
   if (IS_MOBILE) {
-    newCOLS = Math.min(100, newCOLS);
-    newROWS = Math.min(100, newROWS);
+    newCOLS = Math.min(80, newCOLS);
+    newROWS = Math.min(80, newROWS);
   }
 
   const changed = (newCOLS !== COLS || newROWS !== ROWS || CELL !== cellSize);
