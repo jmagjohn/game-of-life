@@ -438,22 +438,6 @@
       height: auto;
     }
 
-    /* ===== MOBILE TOOLBAR ===== */
-    .mobile-toolbar {
-      display: flex;
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      height: 52px;
-      background: #111;
-      border-top: 1px solid color-mix(in srgb, var(--ac) 25%, transparent);
-      z-index: 900;
-      align-items: center;
-      justify-content: space-around;
-      padding: 0 2px;
-    }
-
     .tb-btn {
       display: flex;
       align-items: center;
@@ -492,6 +476,44 @@
   .sp-pip  { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
   .sp-label { color: color-mix(in srgb, var(--ac) 70%, transparent); flex: 1; letter-spacing: 0.08em; }
   .sp-count { color: var(--ac); font-size: 0.75rem; min-width: 36px; text-align: right; }
+
+  /* ===== ALWAYS SHOW MOBILE TOOLBAR & ADJUST FOR PC ===== */
+  .mobile-toolbar {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 52px;
+    background: #111;
+    border-top: 1px solid color-mix(in srgb, var(--ac) 25%, transparent);
+    z-index: 900;
+    align-items: center;
+    justify-content: space-around;
+    padding: 0 2px;
+  }
+
+  @media (min-width: 769px) {
+    .layout {
+      padding: 10px 64px 10px 10px !important; /* reserve right-side space */
+    }
+    .mobile-toolbar {
+      flex-direction: column;
+      bottom: 0; top: 0;
+      left: auto; right: 0;
+      width: 60px; height: 100dvh;
+      border-top: none;
+      border-left: 1px solid color-mix(in srgb, var(--ac) 25%, transparent);
+      justify-content: center;
+      gap: 12px;
+      padding: 20px 0;
+    }
+    .tb-btn {
+      flex: none;
+      width: 48px;
+      height: 48px;
+    }
+  }
 </style>
 </head>
 <body>
@@ -1624,11 +1646,10 @@ function drawChart() {
 function resizeCanvas() {
   const area = document.getElementById('canvas-area');
 
-  if (IS_MOBILE) {
-    // Fixed 75×75 grid on mobile — cell size scales to fill screen
-    // Available space: full width, height minus header (~30px) and toolbar (52px)
-    const availW = window.innerWidth - 8;  // 4px padding each side
-    const availH = window.innerHeight - 30 - 52 - 20; // header, toolbar, phase label
+  // Use fixed 75x75 grid on narrow screens (mobile), dynamic grid on wide screens (PC)
+  if (window.innerWidth <= 768) {
+    const availW = window.innerWidth - 8;
+    const availH = window.innerHeight - 30 - 52 - 20;
     const MOBILE_GRID = 75;
     const cellSize = Math.max(2, Math.floor(Math.min(availW, availH) / MOBILE_GRID));
     const newCOLS = MOBILE_GRID;
@@ -2074,12 +2095,10 @@ if (btnSpawn) {
 // MOBILE: COLLAPSIBLE SECTIONS
 // ────────────────────────────────────────────────────────────
 
-const IS_MOBILE = true;
+const IS_MOBILE = window.matchMedia('(max-width: 768px)').matches;
 
 function initCollapsibleSections() {
-  if (!IS_MOBILE) return;
-
-  // Default: collapse stats, tools, speed, chart. Controls stay visible (no wrapper).
+  // Always allow collapsible sections if they are visible
   const defaultCollapsed = ['stats', 'tools', 'speed', 'chart'];
 
   document.querySelectorAll('.section-toggle').forEach(btn => {
