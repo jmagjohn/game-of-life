@@ -260,15 +260,73 @@
     opacity: 0;
   }
 
+  /* ===== MOBILE BOTTOM TOOLBAR ===== */
+  .mobile-toolbar {
+    display: none; /* hidden on desktop */
+  }
+
+  /* ===== THEME POPUP OVERLAY ===== */
+  .theme-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.75);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+  }
+  .theme-overlay.open {
+    display: flex;
+  }
+  .theme-card {
+    background: #111;
+    border: 1px solid color-mix(in srgb, var(--ac) 40%, transparent);
+    padding: 16px;
+    width: 280px;
+    max-width: 90vw;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .theme-card .theme-title {
+    font-size: 0.7rem;
+    color: var(--ac);
+    letter-spacing: 0.15em;
+    text-align: center;
+    margin-bottom: 4px;
+  }
+  .theme-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: #0a0a0a;
+    border: 1px solid #222;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    font-family: 'Courier New', monospace;
+    font-size: 0.7rem;
+    color: #ccc;
+    letter-spacing: 0.1em;
+  }
+  .theme-option:hover, .theme-option:active {
+    border-color: var(--ac);
+    background: #151515;
+  }
+  .theme-swatch {
+    width: 18px;
+    height: 18px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+
   /* ===== MOBILE RESPONSIVE ===== */
   @media (max-width: 768px) {
     body {
-      padding: 6px 8px;
-      gap: 6px;
-      overflow-y: auto;
-      overflow-x: hidden;
-      height: auto;
-      min-height: 100dvh;
+      padding: 6px 8px 58px;
+      gap: 4px;
+      overflow: hidden;
+      height: 100dvh;
     }
 
     header h1 { font-size: 1rem; }
@@ -277,21 +335,21 @@
     .layout {
       flex-direction: column;
       align-items: stretch;
-      gap: 10px;
-      flex: none;
-      overflow: visible;
+      gap: 0;
+      flex: 1;
+      overflow: hidden;
     }
 
     .grid-wrap {
-      flex: none;
+      flex: 1;
       width: 100%;
+      min-height: 0;
     }
 
     #canvas-area {
       width: 100%;
-      height: auto;
-      aspect-ratio: 1 / 1;
-      max-height: 55dvh;
+      flex: 1;
+      min-height: 0;
     }
 
     #grid-canvas {
@@ -302,79 +360,51 @@
     #draw-hint { display: none; }
 
     .panel {
-      width: 100%;
-      flex-shrink: 1;
-      overflow-y: visible;
-      max-height: none;
-      gap: 8px;
-    }
-
-    /* Bigger touch targets */
-    button {
-      padding: 12px 14px;
-      font-size: 0.78rem;
-      min-height: 44px;
-    }
-
-    select {
-      min-height: 44px;
-      font-size: 0.75rem !important;
-      padding: 10px 8px !important;
-    }
-
-    /* Bigger species dots for touch */
-    .sp-dot {
-      width: 28px;
-      height: 28px;
-    }
-
-    /* Bigger slider thumbs */
-    input[type=range] {
-      height: 8px;
-    }
-    input[type=range]::-webkit-slider-thumb {
-      width: 24px;
-      height: 24px;
-    }
-    input[type=range]::-moz-range-thumb {
-      width: 24px;
-      height: 24px;
-    }
-
-    /* Show section toggles on mobile */
-    .section-toggle {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      background: #050505;
-      border: 1px solid color-mix(in srgb, var(--ac-dim) 30%, transparent);
-      color: var(--ac);
-      font-family: 'Courier New', monospace;
-      font-size: 0.65rem;
-      letter-spacing: 0.15em;
-      padding: 10px 12px;
-      cursor: pointer;
-      width: 100%;
-      min-height: 40px;
-    }
-    .section-toggle::after {
-      content: '▼';
-      font-size: 0.6rem;
-      transition: transform 0.2s;
-    }
-    .section-toggle.open::after {
-      transform: rotate(180deg);
-    }
-
-    /* Hide titles inside sections on mobile (toggle replaces them) */
-    .mobile-section .title {
       display: none;
     }
 
-    /* Chart canvas responsive */
-    #chart-canvas {
-      width: 100%;
-      height: auto;
+    /* ===== MOBILE TOOLBAR ===== */
+    .mobile-toolbar {
+      display: flex;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 52px;
+      background: #111;
+      border-top: 1px solid color-mix(in srgb, var(--ac) 25%, transparent);
+      z-index: 900;
+      align-items: center;
+      justify-content: space-around;
+      padding: 0 2px;
+    }
+
+    .tb-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      height: 46px;
+      background: transparent;
+      border: 2px solid transparent;
+      border-radius: 8px;
+      font-size: 22px;
+      cursor: pointer;
+      padding: 0;
+      margin: 0 1px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      min-height: 0;
+      min-width: 0;
+      width: auto;
+      color: #fff;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .tb-btn::before { content: none; }
+    .tb-btn:hover { background: transparent; border-color: transparent; box-shadow: none; }
+    .tb-btn.tb-active {
+      border-color: var(--ac);
+      box-shadow: 0 0 10px color-mix(in srgb, var(--ac) 50%, transparent);
+      background: rgba(255,255,255,0.05);
     }
   }
 
@@ -571,6 +601,43 @@
   </div><!-- /panel -->
 </div><!-- /layout -->
 
+<!-- MOBILE BOTTOM TOOLBAR -->
+<div class="mobile-toolbar" id="mobile-toolbar">
+  <button class="tb-btn" id="tb-play" title="Play/Pause">▶️</button>
+  <button class="tb-btn" id="tb-fast" title="Fast Mode">⏩</button>
+  <button class="tb-btn tb-active" id="tb-cell" title="Cell Tool">🧫</button>
+  <button class="tb-btn" id="tb-food" title="Food Tool">🍎</button>
+  <button class="tb-btn" id="tb-bomb" title="Bomb Tool">💣</button>
+  <button class="tb-btn" id="tb-theme" title="Theme">🎨</button>
+  <button class="tb-btn" id="tb-spawn" title="Spawn Colony">🧬</button>
+  <button class="tb-btn" id="tb-reset" title="Reset">🔄</button>
+</div>
+
+<!-- THEME POPUP OVERLAY -->
+<div class="theme-overlay" id="theme-overlay">
+  <div class="theme-card">
+    <div class="theme-title">// SELECT THEME</div>
+    <div class="theme-option" data-theme="matrix">
+      <span class="theme-swatch" style="background:#39ff14;"></span> MATRIX GREEN
+    </div>
+    <div class="theme-option" data-theme="neon">
+      <span class="theme-swatch" style="background:#00aaff;"></span> NEON BLUE
+    </div>
+    <div class="theme-option" data-theme="synthwave">
+      <span class="theme-swatch" style="background:#ff00cc;"></span> SYNTHWAVE
+    </div>
+    <div class="theme-option" data-theme="fire">
+      <span class="theme-swatch" style="background:#ff5500;"></span> FIRE
+    </div>
+    <div class="theme-option" data-theme="arctic">
+      <span class="theme-swatch" style="background:#00ccff;"></span> ARCTIC
+    </div>
+    <div class="theme-option" data-theme="psychedelic">
+      <span class="theme-swatch" style="background:linear-gradient(135deg,#ff00cc,#00e8b4,#ffaa00);"></span> PSYCHEDELIC
+    </div>
+  </div>
+</div>
+
 <script>
 /* ============================================================
    LIFE-EVOLVE — Conway's Game of Life + Genetic Algorithm
@@ -586,7 +653,7 @@ let   ROWS        = 150;     // grid height (cells) — recalculated on resize
 let   CELL        = CELL_PX; // alias used throughout (same as CELL_PX)
 let   POP_SIZE    = 20;      // organisms per epoch
 const MAX_GENS       = 500;   // max simulation steps per organism (GA evaluation)
-const DISPLAY_MAX_GENS = 4000; // max steps before display loops back
+const DISPLAY_MAX_GENS = 50000; // max steps before display loops back
 const STABLE_THRESH  = 30;    // steps with unchanged hash = stabilised
 const INIT_FILL   = 0.30;    // initial random cell density (~30%)
 const MUTATION_RATE = 0.02;  // probability of flipping each cell on mutation
@@ -1269,7 +1336,7 @@ function updateCyanMap(g, density) {
 function decayMaps() {
   for (let i = 0; i < foodMap.length; i++) {
     if (foodMap[i] > 0) foodMap[i] = Math.max(0, foodMap[i] - 0.0015);
-    if (bombMap[i] > 0) bombMap[i] = Math.max(0, bombMap[i] - 0.002);
+    if (bombMap[i] > 0) bombMap[i] = Math.max(0, bombMap[i] - 0.008);
   }
 }
 
@@ -1787,6 +1854,15 @@ function setCellFromEvent(e) {
       }
     }
   } else if (activeTool === 'bomb') {
+    // Explosion: kill cells in 2× radius
+    const killRadius = brushRadius * 2;
+    for (let dr = -killRadius; dr <= killRadius; dr++) {
+      for (let dc = -killRadius; dc <= killRadius; dc++) {
+        const ni = idx(row + dr, col + dc);
+        displayGrid[ni] = 0;
+      }
+    }
+    // Gas residue with falloff
     for (let dr = -brushRadius; dr <= brushRadius; dr++) {
       for (let dc = -brushRadius; dc <= brushRadius; dc++) {
         const ni = idx(row + dr, col + dc);
@@ -1961,6 +2037,15 @@ function setCellFromTouch(touch) {
       }
     }
   } else if (activeTool === 'bomb') {
+    // Explosion: kill cells in 2× radius
+    const killRadius = brushRadius * 2;
+    for (let dr = -killRadius; dr <= killRadius; dr++) {
+      for (let dc = -killRadius; dc <= killRadius; dc++) {
+        const ni = idx(row + dr, col + dc);
+        displayGrid[ni] = 0;
+      }
+    }
+    // Gas residue with falloff
     for (let dr = -brushRadius; dr <= brushRadius; dr++) {
       for (let dc = -brushRadius; dc <= brushRadius; dc++) {
         const ni = idx(row + dr, col + dc);
@@ -2019,7 +2104,122 @@ function applyMobileDefaults() {
   stepsPerFrame = 1;
   stepsSlider.value = 1;
   stepsValEl.textContent = '\u00d71';
+
+  // Default brush radius to 2 (5×5) for finger-friendly drawing
+  brushRadius = 2;
+  brushSlider.value = 2;
+  brushVal.textContent = brushLabels[2];
 }
+
+// ────────────────────────────────────────────────────────────
+// MOBILE BOTTOM TOOLBAR
+// ────────────────────────────────────────────────────────────
+
+(function initMobileToolbar() {
+  const tbPlay  = document.getElementById('tb-play');
+  const tbFast  = document.getElementById('tb-fast');
+  const tbCell  = document.getElementById('tb-cell');
+  const tbFood  = document.getElementById('tb-food');
+  const tbBomb  = document.getElementById('tb-bomb');
+  const tbTheme = document.getElementById('tb-theme');
+  const tbSpawn = document.getElementById('tb-spawn');
+  const tbReset = document.getElementById('tb-reset');
+  const overlay = document.getElementById('theme-overlay');
+
+  if (!tbPlay) return; // no toolbar in DOM
+
+  // Species accent colors for spawn button glow
+  const spawnAccents = { 2: '#ff2200', 3: '#0066ff', 4: '#cc00ff', 5: '#ff6600', 6: '#00e8b4' };
+
+  function updateSpawnGlow() {
+    const color = spawnAccents[nextColonySpecies] || '#ff2200';
+    tbSpawn.style.borderColor = color;
+    tbSpawn.style.boxShadow = '0 0 10px ' + color;
+  }
+
+  // Tool buttons — highlight active
+  function setToolbarTool(name, btn) {
+    setActiveTool(name);
+    [tbCell, tbFood, tbBomb].forEach(b => b.classList.remove('tb-active'));
+    btn.classList.add('tb-active');
+  }
+
+  // Play/Pause
+  tbPlay.addEventListener('click', () => {
+    simPaused = !simPaused;
+    tbPlay.textContent = simPaused ? '▶️' : '⏸️';
+    // Sync desktop button
+    btnPause.textContent = simPaused ? 'RESUME SIM' : 'PAUSE SIM';
+    simPaused ? btnPause.classList.add('active') : btnPause.classList.remove('active');
+  });
+
+  // Fast mode toggle
+  let fastMode = false;
+  tbFast.addEventListener('click', () => {
+    fastMode = !fastMode;
+    stepsPerFrame = fastMode ? 3 : 1;
+    tbFast.classList.toggle('tb-active', fastMode);
+    // Sync desktop slider
+    stepsSlider.value = stepsPerFrame;
+    stepsValEl.textContent = '\u00d7' + stepsPerFrame;
+  });
+
+  // Tool selectors
+  tbCell.addEventListener('click', () => setToolbarTool('cell', tbCell));
+  tbFood.addEventListener('click', () => setToolbarTool('food', tbFood));
+  tbBomb.addEventListener('click', () => setToolbarTool('bomb', tbBomb));
+
+  // Theme popup
+  tbTheme.addEventListener('click', () => {
+    overlay.classList.add('open');
+  });
+
+  // Close on backdrop click
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.classList.remove('open');
+  });
+
+  // Theme options
+  overlay.querySelectorAll('.theme-option').forEach(opt => {
+    opt.addEventListener('click', () => {
+      const key = opt.dataset.theme;
+      applyTheme(key);
+      // Sync desktop select
+      themeSelect.value = key;
+      overlay.classList.remove('open');
+    });
+  });
+
+  // Spawn colony — cycle species
+  updateSpawnGlow();
+  tbSpawn.addEventListener('click', () => {
+    spawnColony(nextColonySpecies);
+    activeSpecies = nextColonySpecies;
+    // Update desktop species dots
+    document.querySelectorAll('.sp-dot').forEach(d => d.classList.remove('sp-active'));
+    const dot = document.getElementById('sp-dot-' + nextColonySpecies);
+    if (dot) dot.classList.add('sp-active');
+    // Advance species
+    nextColonySpecies = (nextColonySpecies % 6) + 1;
+    if (nextColonySpecies === 1) nextColonySpecies = 2;
+    updateSpawnGlow();
+  });
+
+  // Reset
+  tbReset.addEventListener('click', () => {
+    reset();
+    // Reset toolbar state
+    tbPlay.textContent = '▶️';
+    fastMode = false;
+    stepsPerFrame = 1;
+    tbFast.classList.remove('tb-active');
+    setToolbarTool('cell', tbCell);
+    updateSpawnGlow();
+  });
+
+  // Start unpaused — show pause icon
+  // (will be set correctly when play is tapped)
+})();
 
 // ────────────────────────────────────────────────────────────
 // INITIALISE
