@@ -345,13 +345,18 @@
     .grid-wrap {
       flex: none;
       width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
 
     #canvas-area {
       width: 100%;
+      max-width: 55dvh;
       height: auto;
       aspect-ratio: 1 / 1;
       max-height: 55dvh;
+      margin: 0 auto;
     }
 
     #grid-canvas {
@@ -2218,8 +2223,8 @@ function applyMobileDefaults() {
 
   const toolBtns = [tbDna, tbFood, tbBomb];
 
-  // Species accent colors for glow — shows what WILL spawn on next tap
-  const spawnAccents = { 2: '#ff2200', 3: '#0066ff', 4: '#cc00ff', 5: '#ff6600', 6: '#00e8b4' };
+  // Species accent colors — glow shows the CURRENT active species color
+  const spawnAccents = { 1: null, 2: '#ff2200', 3: '#0066ff', 4: '#cc00ff', 5: '#ff6600', 6: '#00e8b4' };
 
   function updateDnaGlow() {
     if (activeTool !== 'cell') {
@@ -2227,7 +2232,8 @@ function applyMobileDefaults() {
       tbDna.style.boxShadow = '';
       return;
     }
-    const color = spawnAccents[nextColonySpecies] || '#ff2200';
+    // Show the color of the species we're currently drawing / just spawned
+    const color = spawnAccents[activeSpecies] || activePalette.accent;
     tbDna.style.borderColor = color;
     tbDna.style.boxShadow = '0 0 10px ' + color;
   }
