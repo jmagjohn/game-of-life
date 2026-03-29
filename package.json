@@ -1,0 +1,9 @@
+{
+  "name": "life-evolve",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Conway's Game of Life + Genetic Algorithm",
+  "scripts": {
+    "start": "npx serve ."
+  }
+}
