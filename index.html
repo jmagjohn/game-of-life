@@ -323,45 +323,46 @@
   /* ===== MOBILE RESPONSIVE ===== */
   @media (max-width: 768px) {
     body {
-      padding: 6px 8px 58px;
-      gap: 6px;
-      overflow-y: auto;
-      overflow-x: hidden;
-      height: auto;
-      min-height: 100dvh;
+      padding: 0;
+      gap: 0;
+      overflow: hidden;
+      height: 100dvh;
     }
 
-    header h1 { font-size: 1rem; }
-    header p { font-size: 0.5rem; display: none; }
+    header { padding: 4px 0 2px; }
+    header h1 { font-size: 0.9rem; }
+    header p { display: none; }
 
     .layout {
       flex-direction: column;
-      align-items: stretch;
-      gap: 10px;
-      flex: none;
-      overflow: visible;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      flex: 1;
+      overflow: hidden;
+      padding: 0 4px 52px;
     }
 
     .grid-wrap {
-      flex: none;
+      flex: 1;
       width: 100%;
+      min-height: 0;
       display: flex;
       flex-direction: column;
       align-items: center;
+      justify-content: center;
     }
 
     #canvas-area {
-      width: 100%;
-      max-width: 55dvh;
-      height: auto;
-      aspect-ratio: 1 / 1;
-      max-height: 55dvh;
-      margin: 0 auto;
+      flex: none;
     }
 
     #grid-canvas {
-      width: 100% !important;
-      height: 100% !important;
+      display: block;
+    }
+
+    #phase-label {
+      padding: 2px 0;
     }
 
     #draw-hint { display: none; }
@@ -1623,26 +1624,38 @@ function drawChart() {
  */
 function resizeCanvas() {
   const area = document.getElementById('canvas-area');
-  const rect  = area.getBoundingClientRect();
 
+  if (IS_MOBILE) {
+    // Fixed 75×75 grid on mobile — cell size scales to fill screen
+    // Available space: full width, height minus header (~30px) and toolbar (52px)
+    const availW = window.innerWidth - 8;  // 4px padding each side
+    const availH = window.innerHeight - 30 - 52 - 20; // header, toolbar, phase label
+    const MOBILE_GRID = 75;
+    const cellSize = Math.max(2, Math.floor(Math.min(availW, availH) / MOBILE_GRID));
+    const newCOLS = MOBILE_GRID;
+    const newROWS = MOBILE_GRID;
+
+    const changed = (newCOLS !== COLS || newROWS !== ROWS || CELL !== cellSize);
+    COLS = newCOLS;
+    ROWS = newROWS;
+    CELL = cellSize;
+
+    gridCanvas.width  = COLS * CELL;
+    gridCanvas.height = ROWS * CELL;
+    // Let the canvas size itself — CSS won't force stretch
+    gridCanvas.style.width  = gridCanvas.width + 'px';
+    gridCanvas.style.height = gridCanvas.height + 'px';
+    return changed;
+  }
+
+  // Desktop: measure flex container as before
+  const rect  = area.getBoundingClientRect();
   const availW = Math.floor(rect.width);
   const availH = Math.floor(rect.height);
-
-  // On mobile, use smaller cell size to keep grid manageable
   let cellSize = CELL_PX;
-  if (IS_MOBILE) {
-    // Target ~80x80 grid on mobile
-    cellSize = Math.max(3, Math.min(CELL_PX, Math.floor(Math.min(availW, availH) / 80)));
-  }
 
   let newCOLS = Math.max(20, Math.floor(availW / cellSize));
   let newROWS = Math.max(20, Math.floor(availH / cellSize));
-
-  // Cap mobile grid to ~100x100 max
-  if (IS_MOBILE) {
-    newCOLS = Math.min(100, newCOLS);
-    newROWS = Math.min(100, newROWS);
-  }
 
   const changed = (newCOLS !== COLS || newROWS !== ROWS || CELL !== cellSize);
   COLS = newCOLS;
