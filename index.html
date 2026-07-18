@@ -196,6 +196,7 @@ html, body {
   transition: color 0.15s, border-color 0.15s, box-shadow 0.15s, background 0.15s;
 }
 .tbtn svg { width: 21px; height: 21px; display: block; }
+.tbtn { font-size: 20px; line-height: 1; }
 .tbtn:hover { color: var(--txt); background: rgba(255,255,255,0.05); }
 .tbtn.on {
   color: var(--ac);
@@ -204,7 +205,7 @@ html, body {
               inset 0 0 8px color-mix(in srgb, var(--ac) 12%, transparent);
 }
 @media (max-width: 480px) {
-  .tbtn { width: 40px; height: 40px; }
+  .tbtn { width: 40px; height: 40px; font-size: 18px; }
   .tbtn svg { width: 19px; height: 19px; }
 }
 /* food & bomb tools glow in their own colors */
@@ -606,12 +607,9 @@ select option { background: #0b0d1a; }
   <button class="tbtn" id="b-step" aria-label="Step one generation"></button>
   <div class="tb-sep"></div>
   <button class="tbtn" id="b-dice" aria-label="Randomize"></button>
-  <button class="tbtn" id="b-clear" aria-label="Clear"></button>
   <div class="tb-sep"></div>
   <button class="tbtn on" id="b-draw" aria-label="Draw tool"></button>
-  <button class="tbtn" id="b-erase" aria-label="Erase tool"></button>
   <button class="tbtn" id="b-stamp" aria-label="Stamp pattern tool"></button>
-  <button class="tbtn" id="b-pan" aria-label="Pan tool"></button>
   <div class="tb-sep"></div>
   <button class="tbtn" id="b-food" aria-label="Food tool"></button>
   <button class="tbtn" id="b-bomb" aria-label="Gas bomb tool"></button>
@@ -776,7 +774,7 @@ const SPEED_STOPS = [2, 4, 6, 8, 12, 15, 20, 30, 45, 60, 240];
 let sps = 20;                   // target generations per second
 
 let zoom = 1, panX = 0, panY = 0;
-let tool = 'draw';              // draw | erase | stamp | pan
+let tool = 'draw';              // draw | stamp | food | bomb
 let brushR = 1;
 let symmetry = 'off';           // off | x | xy
 let soupDensity = 0.25;
@@ -1220,7 +1218,6 @@ function dropBomb(gx, gy) {
 
 function applyToolAt(gx, gy) {
   if (tool === 'draw')       paintSym(gx, gy, activeSpecies);
-  else if (tool === 'erase') paintSym(gx, gy, 0);
   else if (tool === 'food')  dropFood(gx, gy);
   else if (tool === 'bomb')  dropBomb(gx, gy);
 }
@@ -1310,7 +1307,7 @@ cv.addEventListener('pointerdown', e => {
   }
   if (pointers.size > 2) return;
 
-  const wantPan = tool === 'pan' || spaceHeld || e.button === 1 || e.button === 2;
+  const wantPan = spaceHeld || e.button === 1 || e.button === 2;
   if (wantPan) { panning = true; return; }
   if (tool === 'stamp') { placeStamp(e.clientX, e.clientY); return; }
   painting = true;
@@ -1385,8 +1382,6 @@ window.addEventListener('keydown', e => {
     case 'KeyC': clearAll(); toast('cleared'); break;
     case 'KeyR': rotateStamp(); break;
     case 'KeyB': setTool('draw'); break;
-    case 'KeyE': setTool('erase'); break;
-    case 'KeyP': setTool('pan'); break;
     case 'KeyF': setTool('food'); break;
     case 'KeyG': setTool('bomb'); break;
     case 'Digit1': case 'Digit2': case 'Digit3':
@@ -1423,28 +1418,18 @@ const ICONS = {
   pause: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>',
   step:  '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 5h3v14H5zm5 2 8 5-8 5z"/></svg>',
   dice:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="3.5"/><circle cx="9" cy="9" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="9" r="1.4" fill="currentColor" stroke="none"/><circle cx="9" cy="15" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="15" r="1.4" fill="currentColor" stroke="none"/></svg>',
-  clear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m3 0-1 13a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1L6 7"/></svg>',
-  draw:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.8 2.8 0 0 1 4 4L8 20l-5 1 1-5Z"/></svg>',
-  erase: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 20-4.5-4.5a2 2 0 0 1 0-2.8l8.2-8.2a2 2 0 0 1 2.8 0l5 5a2 2 0 0 1 0 2.8L12 20H8Z"/><path d="M6 12.5 12.5 19"/></svg>',
   stamp: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1" fill="currentColor"/></svg>',
-  pan:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 12h20"/><path d="m9 5 3-3 3 3M9 19l3 3 3-3M5 9 2 12l3 3M19 9l3 3-3 3"/></svg>',
-  food:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8c-3.2-2-7-.4-7 3.6C5 16 8 20.5 12 20.5s7-4.5 7-8.9c0-4-3.8-5.6-7-3.6Z"/><path d="M12 8c0-2.2 1.2-3.6 3-4.5"/></svg>',
-  bomb:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.5" cy="14" r="6.5"/><path d="m15 9.5 3.5-3.5"/><path d="M20 2.5v3M18.5 4h3"/></svg>',
-  theme: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21a9 9 0 1 1 9-9c0 2-1.5 3-3 3h-2a2.5 2.5 0 0 0-2 4c.5.8 0 2-2 2Z"/><circle cx="7.5" cy="11" r="1.2" fill="currentColor" stroke="none"/><circle cx="11" cy="7" r="1.2" fill="currentColor" stroke="none"/><circle cx="16" cy="8.5" r="1.2" fill="currentColor" stroke="none"/></svg>',
   gear:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 8h10M18 8h2M4 16h2M10 16h10"/><circle cx="16" cy="8" r="2.2"/><circle cx="8" cy="16" r="2.2"/></svg>',
 };
 
 $('b-play').innerHTML  = ICONS.pause;
 $('b-step').innerHTML  = ICONS.step;
 $('b-dice').innerHTML  = ICONS.dice;
-$('b-clear').innerHTML = ICONS.clear;
-$('b-draw').innerHTML  = ICONS.draw;
-$('b-erase').innerHTML = ICONS.erase;
+$('b-draw').textContent  = '✏️';
 $('b-stamp').innerHTML = ICONS.stamp;
-$('b-pan').innerHTML   = ICONS.pan;
-$('b-food').innerHTML  = ICONS.food;
-$('b-bomb').innerHTML  = ICONS.bomb;
-$('b-theme').innerHTML = ICONS.theme;
+$('b-food').textContent  = '🍎';
+$('b-bomb').textContent  = '💣';
+$('b-theme').textContent = '🎨';
 $('b-settings').innerHTML = ICONS.gear;
 
 function buzz(ms) { if (navigator.vibrate) navigator.vibrate(ms); }
@@ -1472,22 +1457,17 @@ function doStep() {
 $('b-play').addEventListener('click', togglePlay);
 $('b-step').addEventListener('click', doStep);
 $('b-dice').addEventListener('click', () => { randomize(); buzz(8); });
-$('b-clear').addEventListener('click', () => { clearAll(); buzz(8); });
 
 const TOOL_BTNS = {
-  draw: $('b-draw'), erase: $('b-erase'), stamp: $('b-stamp'),
-  pan: $('b-pan'), food: $('b-food'), bomb: $('b-bomb'),
+  draw: $('b-draw'), stamp: $('b-stamp'), food: $('b-food'), bomb: $('b-bomb'),
 };
 function setTool(t) {
   tool = t;
   for (const k in TOOL_BTNS) TOOL_BTNS[k].classList.toggle('on', k === t);
-  cv.style.cursor = t === 'pan' ? 'grab' : 'crosshair';
   refreshSpeciesBar();
   buzz(5);
 }
 $('b-draw').addEventListener('click', () => { setTool('draw'); closePanels(); });
-$('b-erase').addEventListener('click', () => { setTool('erase'); closePanels(); });
-$('b-pan').addEventListener('click', () => { setTool('pan'); closePanels(); });
 $('b-food').addEventListener('click', () => {
   setTool('food'); closePanels();
   toast('<b>FOOD</b> — paint golden zones that supercharge growth', 1800);
