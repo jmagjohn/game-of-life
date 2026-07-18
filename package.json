@@ -1,0 +1,9 @@
+{
+  "name": "life-evolve",
+  "version": "1.0.0",
+  "private": true,
+  "description": "LIFE — a fast, pretty cellular-automata playground",
+  "scripts": {
+    "start": "npx serve ."
+  }
+}

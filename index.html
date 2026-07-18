@@ -1,0 +1,1698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#030109">
+<title>LIFE — Game of Life</title>
+<style>
+:root {
+  --ac: #00ffe1;
+  --page: #030109;
+  --glass: rgba(10, 12, 24, 0.72);
+  --glass-brd: rgba(255, 255, 255, 0.09);
+  --txt: rgba(235, 240, 255, 0.92);
+  --txt-dim: rgba(235, 240, 255, 0.45);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--page);
+  color: var(--txt);
+  font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Menlo, Consolas, monospace;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+#c {
+  position: fixed;
+  inset: 0;
+  display: block;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.45) 100%);
+  z-index: 2;
+}
+
+/* ── HUD (top) ─────────────────────────────── */
+.hud {
+  position: fixed;
+  top: calc(8px + env(safe-area-inset-top));
+  left: 12px;
+  right: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  pointer-events: none;
+  z-index: 10;
+}
+.brand {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.45em;
+  color: var(--ac);
+  text-shadow: 0 0 14px var(--ac), 0 0 40px color-mix(in srgb, var(--ac) 40%, transparent);
+  padding: 6px 2px 6px 12px;
+}
+.brand small {
+  display: block;
+  font-size: 8px;
+  font-weight: 400;
+  letter-spacing: 0.32em;
+  color: var(--txt-dim);
+  text-shadow: none;
+  margin-top: 3px;
+}
+.stats { display: flex; gap: 8px; }
+.stat {
+  background: var(--glass);
+  border: 1px solid var(--glass-brd);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 10px;
+  padding: 5px 10px;
+  text-align: right;
+  min-width: 58px;
+}
+.stat .v {
+  font-size: 14px;
+  color: var(--ac);
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 8px color-mix(in srgb, var(--ac) 60%, transparent);
+}
+.stat .l {
+  font-size: 8px;
+  letter-spacing: 0.2em;
+  color: var(--txt-dim);
+  margin-top: 1px;
+}
+@media (max-width: 560px) {
+  .stat.fps { display: none; }
+  .brand { font-size: 13px; padding-left: 6px; }
+}
+
+/* ── Zoom reset chip ───────────────────────── */
+#zoomchip {
+  position: fixed;
+  top: calc(64px + env(safe-area-inset-top));
+  right: 12px;
+  z-index: 10;
+  background: var(--glass);
+  border: 1px solid color-mix(in srgb, var(--ac) 45%, transparent);
+  color: var(--ac);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: none;
+}
+#zoomchip.show { display: block; }
+
+/* ── Toast ─────────────────────────────────── */
+#toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(130px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  background: var(--glass);
+  border: 1px solid var(--glass-brd);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 12px;
+  padding: 9px 16px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--txt);
+  z-index: 20;
+  opacity: 0;
+  transition: opacity 0.4s;
+  pointer-events: none;
+  text-align: center;
+  max-width: min(90vw, 480px);
+  line-height: 1.6;
+}
+#toast.show { opacity: 1; }
+#toast b { color: var(--ac); font-weight: 600; }
+
+/* ── Toolbar (bottom) ──────────────────────── */
+.toolbar {
+  position: fixed;
+  bottom: calc(10px + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--glass);
+  border: 1px solid var(--glass-brd);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-radius: 16px;
+  padding: 6px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  max-width: calc(100vw - 12px);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.toolbar::-webkit-scrollbar { display: none; }
+.tb-sep {
+  width: 1px;
+  align-self: stretch;
+  margin: 6px 3px;
+  background: var(--glass-brd);
+  flex-shrink: 0;
+}
+.tbtn {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  color: var(--txt-dim);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+.tbtn svg { width: 21px; height: 21px; display: block; }
+.tbtn:hover { color: var(--txt); background: rgba(255,255,255,0.05); }
+.tbtn.on {
+  color: var(--ac);
+  border-color: color-mix(in srgb, var(--ac) 55%, transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--ac) 35%, transparent),
+              inset 0 0 8px color-mix(in srgb, var(--ac) 12%, transparent);
+}
+@media (max-width: 480px) {
+  .tbtn { width: 40px; height: 40px; }
+  .tbtn svg { width: 19px; height: 19px; }
+}
+/* food & bomb tools glow in their own colors */
+#b-food.on {
+  color: #ffc020;
+  border-color: rgba(255,192,32,0.55);
+  box-shadow: 0 0 12px rgba(255,192,32,0.35), inset 0 0 8px rgba(255,192,32,0.12);
+}
+#b-bomb.on {
+  color: #8cff3e;
+  border-color: rgba(140,255,62,0.55);
+  box-shadow: 0 0 12px rgba(140,255,62,0.35), inset 0 0 8px rgba(140,255,62,0.12);
+}
+
+/* ── Species bar (faction picker) ──────────── */
+#speciesbar {
+  position: fixed;
+  bottom: calc(68px + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 13;
+  display: none;
+  align-items: center;
+  gap: 5px;
+  background: var(--glass);
+  border: 1px solid var(--glass-brd);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 999px;
+  padding: 5px 10px;
+}
+#speciesbar.show { display: flex; }
+#speciesbar .sp {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 3px 4px;
+  -webkit-tap-highlight-color: transparent;
+}
+#speciesbar .sp .dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  transition: transform 0.12s, box-shadow 0.12s, border-color 0.12s;
+}
+#speciesbar .sp.on .dot {
+  border-color: #fff;
+  transform: scale(1.18);
+  box-shadow: 0 0 10px currentColor;
+}
+#speciesbar .sp .ct {
+  font-size: 8px;
+  color: var(--txt-dim);
+  font-variant-numeric: tabular-nums;
+  min-height: 10px;
+}
+
+/* ── Panels ────────────────────────────────── */
+.panel {
+  position: fixed;
+  bottom: calc(70px + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%) translateY(8px);
+  z-index: 14;
+  width: min(calc(100vw - 16px), 440px);
+  max-height: min(58vh, 480px);
+  overflow-y: auto;
+  background: var(--glass);
+  border: 1px solid var(--glass-brd);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-radius: 16px;
+  padding: 14px;
+  box-shadow: 0 12px 48px rgba(0,0,0,0.6);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s, transform 0.18s;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--ac) 30%, transparent) transparent;
+}
+.panel.open {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0);
+}
+.panel h3 {
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  color: var(--ac);
+  margin-bottom: 12px;
+  text-shadow: 0 0 8px color-mix(in srgb, var(--ac) 40%, transparent);
+}
+.panel h3:not(:first-child) { margin-top: 18px; }
+
+/* patterns grid */
+.pat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 8px;
+}
+.pat {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--glass-brd);
+  border-radius: 10px;
+  padding: 8px 6px;
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.pat:hover { border-color: color-mix(in srgb, var(--ac) 40%, transparent); }
+.pat.on {
+  border-color: var(--ac);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--ac) 30%, transparent);
+}
+.pat canvas { width: 56px; height: 42px; image-rendering: pixelated; }
+.pat .nm {
+  font-size: 8.5px;
+  letter-spacing: 0.08em;
+  color: var(--txt-dim);
+  margin-top: 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pat.on .nm { color: var(--ac); }
+.pat-actions { display: flex; gap: 8px; margin-top: 12px; }
+
+/* theme swatches */
+.theme-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 10px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.theme-row:hover { background: rgba(255,255,255,0.04); }
+.theme-row.on { border-color: var(--ac); box-shadow: 0 0 10px color-mix(in srgb, var(--ac) 25%, transparent); }
+.theme-row .sw {
+  width: 64px;
+  height: 22px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  border: 1px solid rgba(255,255,255,0.15);
+}
+.theme-row .nm { font-size: 11px; letter-spacing: 0.12em; }
+
+/* settings controls */
+.ctl { margin-bottom: 14px; }
+.ctl:last-child { margin-bottom: 0; }
+.ctl-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  color: var(--txt-dim);
+  margin-bottom: 7px;
+}
+.ctl-label .val { color: var(--ac); letter-spacing: 0.05em; }
+input[type=range] {
+  width: 100%;
+  height: 26px;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+input[type=range]::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.12);
+}
+input[type=range]::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: -8px;
+  border-radius: 50%;
+  background: var(--ac);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--ac) 70%, transparent);
+  border: none;
+}
+input[type=range]::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.12);
+}
+input[type=range]::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--ac);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--ac) 70%, transparent);
+  border: none;
+}
+.seg {
+  display: flex;
+  gap: 4px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 10px;
+  padding: 3px;
+}
+.seg button {
+  flex: 1;
+  padding: 8px 4px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--txt-dim);
+  font-family: inherit;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  min-height: 34px;
+}
+.seg button.on {
+  background: color-mix(in srgb, var(--ac) 18%, transparent);
+  color: var(--ac);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--ac) 20%, transparent);
+}
+select {
+  width: 100%;
+  background: rgba(255,255,255,0.05);
+  color: var(--txt);
+  border: 1px solid var(--glass-brd);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  min-height: 40px;
+}
+select option { background: #0b0d1a; }
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--glass-brd);
+  border-radius: 10px;
+  color: var(--txt);
+  font-family: inherit;
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  padding: 10px 14px;
+  cursor: pointer;
+  min-height: 40px;
+  transition: border-color 0.15s, color 0.15s;
+}
+.btn:hover { border-color: var(--ac); color: var(--ac); }
+.toggles { display: flex; flex-direction: column; gap: 2px; }
+.tog {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 4px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+.tog .sw2 {
+  width: 40px;
+  height: 22px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.12);
+  position: relative;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+.tog .sw2::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #aab;
+  transition: transform 0.15s, background 0.15s;
+}
+.tog.on .sw2 { background: color-mix(in srgb, var(--ac) 35%, transparent); }
+.tog.on .sw2::after { transform: translateX(18px); background: var(--ac); box-shadow: 0 0 8px var(--ac); }
+</style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+<div class="vignette"></div>
+
+<!-- HUD -->
+<div class="hud">
+  <div class="brand">L I F E<small>CELLULAR AUTOMATA</small></div>
+  <div class="stats">
+    <div class="stat"><div class="v" id="st-gen">0</div><div class="l">GEN</div></div>
+    <div class="stat"><div class="v" id="st-pop">0</div><div class="l">CELLS</div></div>
+    <div class="stat fps"><div class="v" id="st-fps">60</div><div class="l">FPS</div></div>
+  </div>
+</div>
+
+<button id="zoomchip">⟲ 1.0×</button>
+<div id="toast"></div>
+
+<!-- PANELS -->
+<div class="panel" id="panel-patterns">
+  <h3>// STAMP A PATTERN</h3>
+  <div class="pat-grid" id="pat-grid"></div>
+  <div class="pat-actions">
+    <button class="btn" id="btn-rotate" style="flex:1">⟳ ROTATE (R)</button>
+  </div>
+</div>
+
+<div class="panel" id="panel-themes">
+  <h3>// COLOR THEME</h3>
+  <div id="theme-list"></div>
+</div>
+
+<div class="panel" id="panel-settings">
+  <h3>// SIMULATION</h3>
+  <div class="ctl">
+    <div class="ctl-label"><span>SPEED</span><span class="val" id="speed-val">20 gen/s</span></div>
+    <input type="range" id="speed" min="0" max="10" value="6" step="1">
+  </div>
+  <div class="ctl">
+    <div class="ctl-label"><span>RULES</span></div>
+    <select id="rules"></select>
+  </div>
+  <div class="ctl">
+    <div class="ctl-label"><span>SOUP DENSITY (DICE)</span><span class="val" id="dens-val">25%</span></div>
+    <input type="range" id="density" min="5" max="60" value="25" step="1">
+  </div>
+  <div class="ctl">
+    <div class="ctl-label"><span>BATTLE FACTIONS (DICE)</span></div>
+    <div class="seg" id="spcount-seg">
+      <button data-v="1">1</button>
+      <button data-v="2">2</button>
+      <button data-v="3" class="on">3</button>
+      <button data-v="4">4</button>
+      <button data-v="6">6</button>
+    </div>
+  </div>
+
+  <h3>// BRUSH</h3>
+  <div class="ctl">
+    <div class="ctl-label"><span>BRUSH SIZE</span><span class="val" id="brush-val">3</span></div>
+    <input type="range" id="brush" min="0" max="6" value="1" step="1">
+  </div>
+  <div class="ctl">
+    <div class="ctl-label"><span>SYMMETRY</span></div>
+    <div class="seg" id="sym-seg">
+      <button data-v="off" class="on">OFF</button>
+      <button data-v="x">MIRROR</button>
+      <button data-v="xy">KALEIDO</button>
+    </div>
+  </div>
+
+  <h3>// DISPLAY</h3>
+  <div class="ctl">
+    <div class="ctl-label"><span>RESOLUTION</span></div>
+    <div class="seg" id="cell-seg">
+      <button data-v="8">CHUNKY</button>
+      <button data-v="6">BOLD</button>
+      <button data-v="4" class="on">FINE</button>
+      <button data-v="3">ULTRA</button>
+    </div>
+  </div>
+  <div class="toggles">
+    <div class="tog on" id="tog-trails"><span>GLOW TRAILS</span><span class="sw2"></span></div>
+    <div class="tog on" id="tog-grid"><span>GRID LINES (WHEN ZOOMED)</span><span class="sw2"></span></div>
+  </div>
+  <div class="ctl" style="margin-top:12px">
+    <button class="btn" id="btn-resetview" style="width:100%">⟲ RESET VIEW</button>
+  </div>
+</div>
+
+<!-- SPECIES BAR (faction picker, shows with draw/stamp tool) -->
+<div id="speciesbar">
+  <button class="sp on" data-s="1"><span class="dot"></span><span class="ct"></span></button>
+  <button class="sp" data-s="2"><span class="dot"></span><span class="ct"></span></button>
+  <button class="sp" data-s="3"><span class="dot"></span><span class="ct"></span></button>
+  <button class="sp" data-s="4"><span class="dot"></span><span class="ct"></span></button>
+  <button class="sp" data-s="5"><span class="dot"></span><span class="ct"></span></button>
+  <button class="sp" data-s="6"><span class="dot"></span><span class="ct"></span></button>
+</div>
+
+<!-- TOOLBAR -->
+<div class="toolbar" id="toolbar">
+  <button class="tbtn" id="b-play" aria-label="Play / Pause"></button>
+  <button class="tbtn" id="b-step" aria-label="Step one generation"></button>
+  <div class="tb-sep"></div>
+  <button class="tbtn" id="b-dice" aria-label="Randomize"></button>
+  <button class="tbtn" id="b-clear" aria-label="Clear"></button>
+  <div class="tb-sep"></div>
+  <button class="tbtn on" id="b-draw" aria-label="Draw tool"></button>
+  <button class="tbtn" id="b-erase" aria-label="Erase tool"></button>
+  <button class="tbtn" id="b-stamp" aria-label="Stamp pattern tool"></button>
+  <button class="tbtn" id="b-pan" aria-label="Pan tool"></button>
+  <div class="tb-sep"></div>
+  <button class="tbtn" id="b-food" aria-label="Food tool"></button>
+  <button class="tbtn" id="b-bomb" aria-label="Gas bomb tool"></button>
+  <div class="tb-sep"></div>
+  <button class="tbtn" id="b-theme" aria-label="Themes"></button>
+  <button class="tbtn" id="b-settings" aria-label="Settings"></button>
+</div>
+
+<script>
+'use strict';
+/* ============================================================
+   L I F E — a fast, pretty cellular-automata playground.
+   Single file, no dependencies. Toroidal grid, typed arrays,
+   LUT-colored ImageData rendering, pan/zoom, touch-first UI.
+   ============================================================ */
+
+// ────────────────────────────────────────────
+// THEMES — stops: [newborn, young, mid, old] RGB
+// ────────────────────────────────────────────
+const THEMES = [
+  { id: 'cyber',   name: 'CYBER NEON',  ac: '#00ffe1', page: '#030109', bg: [6, 2, 16],
+    stops: [[170,255,248],[0,255,235],[255,0,190],[80,0,150]],  trail: [130,0,170] },
+  { id: 'rainbow', name: 'RAINBOW FLOW', ac: '#ff5efc', page: '#020204', bg: [4, 4, 9],
+    rainbow: true, trail: null },
+  { id: 'inferno', name: 'INFERNO',     ac: '#ff9d00', page: '#050101', bg: [10, 2, 2],
+    stops: [[255,240,170],[255,220,90],[255,80,0],[110,10,10]], trail: [160,35,0] },
+  { id: 'matrix',  name: 'MATRIX',      ac: '#39ff14', page: '#010402', bg: [1, 8, 3],
+    stops: [[195,255,200],[120,255,140],[0,210,70],[0,90,30]],  trail: [0,115,45] },
+  { id: 'vapor',   name: 'VAPORWAVE',   ac: '#ff71ce', page: '#050112', bg: [10, 2, 24],
+    stops: [[255,190,232],[255,113,206],[178,92,255],[45,45,190]], trail: [150,60,220] },
+  { id: 'aurora',  name: 'AURORA',      ac: '#7cffc4', page: '#010308', bg: [2, 6, 12],
+    stops: [[185,255,215],[124,255,180],[0,170,255],[115,0,255]], trail: [0,125,165] },
+];
+
+// ────────────────────────────────────────────
+// RULES — b/s = neighbor counts for birth / survival
+// ────────────────────────────────────────────
+const RULES = [
+  { name: 'CONWAY · B3/S23',                b: [3],       s: [2,3] },
+  { name: 'HIGHLIFE · B36/S23',             b: [3,6],     s: [2,3] },
+  { name: 'DAY & NIGHT · B3678/S34678',     b: [3,6,7,8], s: [3,4,6,7,8] },
+  { name: 'SEEDS · B2/S– (FIREWORKS)',      b: [2],       s: [] },
+  { name: 'MAZE · B3/S12345',               b: [3],       s: [1,2,3,4,5] },
+  { name: 'CORAL · B3/S45678',              b: [3],       s: [4,5,6,7,8] },
+  { name: 'NO DEATH · B3/S012345678',       b: [3],       s: [0,1,2,3,4,5,6,7,8] },
+];
+const ruleMask = a => a.reduce((m, n) => m | (1 << n), 0);
+
+// ────────────────────────────────────────────
+// SPECIES — up to 6 factions compete for territory.
+// A birth goes to whichever species dominates the neighborhood.
+// Species 1 wears the active theme; 2-6 have fixed vivid hues.
+// ────────────────────────────────────────────
+const SPECIES_HUES = [0, 0, 355, 215, 285, 33, 168]; // index 2-6 used
+const SPECIES_ACC  = [null, null, '#ff3b50', '#3b8cff', '#c44dff', '#ffa01e', '#00e8b4'];
+
+// ────────────────────────────────────────────
+// PATTERNS ('.' dead, 'O' alive)
+// ────────────────────────────────────────────
+const PATTERNS = [
+  { name: 'GLIDER', art: `
+.O.
+..O
+OOO` },
+  { name: 'LW SPACESHIP', art: `
+O..O.
+....O
+O...O
+.OOOO` },
+  { name: 'R-PENTOMINO', art: `
+.OO
+OO.
+.O.` },
+  { name: 'ACORN', art: `
+.O.....
+...O...
+OO..OOO` },
+  { name: 'DIEHARD', art: `
+......O.
+OO......
+.O...OOO` },
+  { name: 'PULSAR', art: `
+..OOO...OOO..
+.............
+O....O.O....O
+O....O.O....O
+O....O.O....O
+..OOO...OOO..
+.............
+..OOO...OOO..
+O....O.O....O
+O....O.O....O
+O....O.O....O
+.............
+..OOO...OOO..` },
+  { name: 'PENTADECATHLON', art: `
+..O....O..
+OO.OOOO.OO
+..O....O..` },
+  { name: 'GOSPER GUN', art: `
+........................O...........
+......................O.O...........
+............OO......OO............OO
+...........O...O....OO............OO
+OO........O.....O...OO..............
+OO........O...O.OO....O.O...........
+..........O.....O.......O...........
+...........O...O....................
+............OO......................` },
+];
+// parse art → cells: [[x,y]…], w, h
+for (const p of PATTERNS) {
+  const rows = p.art.trim().split('\n');
+  p.cells = [];
+  p.h = rows.length;
+  p.w = 0;
+  rows.forEach((row, y) => {
+    p.w = Math.max(p.w, row.length);
+    for (let x = 0; x < row.length; x++) if (row[x] === 'O') p.cells.push([x, y]);
+  });
+}
+function rotatePattern(p) {
+  // 90° clockwise: (x,y) → (h-1-y, x)
+  return { name: p.name, w: p.h, h: p.w, cells: p.cells.map(([x, y]) => [p.h - 1 - y, x]) };
+}
+
+// ────────────────────────────────────────────
+// STATE
+// ────────────────────────────────────────────
+const cv  = document.getElementById('c');
+const ctx = cv.getContext('2d', { alpha: false });
+
+let cssW = 0, cssH = 0, dpr = 1;
+let cellSize = 4;               // css px per cell at zoom 1
+let cols = 0, rows = 0;
+let cells, next, age, trail;    // typed arrays, rows*cols; cells: 0 dead, 1-6 species
+let trailSp;                    // species a trail was left by (colors the fade)
+let foodMap, bombMap;           // zone intensities 0-255
+let foodActive = false, bombActive = false;
+let off, octx, img, pix;        // offscreen canvas (1px per cell) + pixel buffer
+
+let theme = THEMES[0];
+let rule, birthMask, surviveMask, foodBirthMask, foodSurviveMask;
+function setRule(r) {
+  rule = r;
+  birthMask   = ruleMask(r.b);
+  surviveMask = ruleMask(r.s);
+  // food zones relax the rules: tolerate one extra crowding neighbor,
+  // give birth with one fewer (Conway: S23→S234, B3→B23)
+  foodSurviveMask = (surviveMask | (surviveMask << 1)) & 511;
+  foodBirthMask   = (birthMask | (birthMask >> 1)) & 511;
+}
+setRule(RULES[0]);
+
+let activeSpecies = 1;          // faction the draw/stamp tools place
+let speciesCount  = 3;          // factions the dice seeds
+
+let running    = true;
+let generation = 0;
+let population = 0;
+const SPEED_STOPS = [2, 4, 6, 8, 12, 15, 20, 30, 45, 60, 240];
+let sps = 20;                   // target generations per second
+
+let zoom = 1, panX = 0, panY = 0;
+let tool = 'draw';              // draw | erase | stamp | pan
+let brushR = 1;
+let symmetry = 'off';           // off | x | xy
+let soupDensity = 0.25;
+let trailsOn = true, gridLinesOn = true;
+
+let stampBase = PATTERNS[0], stampRot = 0, stamp = PATTERNS[0];
+let hoverGX = -1, hoverGY = -1, hoverOn = false;
+
+// render LUTs (packed little-endian ABGR), one 64/32-entry block per species
+const aliveLUT = new Uint32Array(7 * 64);
+const trailLUT = new Uint32Array(7 * 32);
+let bgPacked = 0;
+
+const pack = (r, g, b) => (255 << 24) | (b << 16) | (g << 8) | r;
+
+function hsv(h, s, v) { // h 0-360, s/v 0-1 → [r,g,b]
+  const f = n => {
+    const k = (n + h / 60) % 6;
+    return Math.round(255 * (v - v * s * Math.max(0, Math.min(k, 4 - k, 1))));
+  };
+  return [f(5), f(3), f(1)];
+}
+
+const lerp3 = (a, b, t) =>
+  [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+
+// alive ramp: stop positions along age 0→1
+// (birth flash lasts ~2 generations, then full hue)
+const STOP_POS = [0, 0.05, 0.45, 1];
+function rampColor(stops, t) {
+  for (let i = 1; i < STOP_POS.length; i++) {
+    if (t <= STOP_POS[i]) {
+      const u = (t - STOP_POS[i - 1]) / (STOP_POS[i] - STOP_POS[i - 1]);
+      return lerp3(stops[i - 1], stops[i], u);
+    }
+  }
+  return stops[stops.length - 1];
+}
+
+function buildRamp(sp, stops, trailRGB) {
+  const bg = theme.bg;
+  for (let a = 0; a < 64; a++) {
+    const [r, g, b] = rampColor(stops, a / 63);
+    aliveLUT[sp * 64 + a] = pack(Math.round(r), Math.round(g), Math.round(b));
+  }
+  trailLUT[sp * 32] = bgPacked;
+  for (let k = 1; k < 32; k++) {
+    const t = Math.pow(k / 31, 1.4) * 0.85;
+    const [r, g, b] = lerp3(bg, trailRGB, t);
+    trailLUT[sp * 32 + k] = pack(Math.round(r), Math.round(g), Math.round(b));
+  }
+}
+
+// species 1 only — cheap enough to rebuild every frame for rainbow
+function buildThemeLUT(timeSec) {
+  if (theme.rainbow) {
+    const bg = theme.bg;
+    const hueOff = (timeSec * 40) % 360;
+    for (let a = 0; a < 64; a++) {
+      const t = a / 63;
+      const [r, g, b] = hsv((hueOff + a * 4.2) % 360, a === 0 ? 0.55 : 0.95, 1 - t * 0.35);
+      aliveLUT[64 + a] = pack(r, g, b);
+    }
+    const trailRGB = hsv((hueOff + 300) % 360, 0.95, 0.65);
+    trailLUT[32] = bgPacked;
+    for (let k = 1; k < 32; k++) {
+      const t = Math.pow(k / 31, 1.4) * 0.85;
+      const [r, g, b] = lerp3(bg, trailRGB, t);
+      trailLUT[32 + k] = pack(Math.round(r), Math.round(g), Math.round(b));
+    }
+  } else {
+    buildRamp(1, theme.stops, theme.trail);
+  }
+}
+
+function speciesStops(h) {
+  // birth flash is a bright pastel of the faction hue, not white,
+  // so even a battle front full of newborns reads as its faction
+  return [hsv(h, 0.45, 1), hsv(h, 0.9, 1), hsv((h + 18) % 360, 1, 0.8), hsv((h + 36) % 360, 1, 0.32)];
+}
+
+function buildAllLUTs() {
+  const bg = theme.bg;
+  bgPacked = pack(bg[0], bg[1], bg[2]);
+  buildThemeLUT(performance.now() / 1000);
+  for (let s = 2; s <= 6; s++)
+    buildRamp(s, speciesStops(SPECIES_HUES[s]), hsv(SPECIES_HUES[s], 1, 0.4));
+}
+
+function applyTheme(th) {
+  theme = th;
+  document.documentElement.style.setProperty('--ac', th.ac);
+  document.documentElement.style.setProperty('--page', th.page);
+  document.body.style.background = th.page;
+  buildAllLUTs();
+  document.querySelectorAll('.theme-row').forEach(el =>
+    el.classList.toggle('on', el.dataset.id === th.id));
+}
+
+// ────────────────────────────────────────────
+// GRID SETUP / RESIZE
+// ────────────────────────────────────────────
+function setupGrid(preserve) {
+  const oldCells = preserve ? cells : null;
+  const oldCols = cols, oldRows = rows;
+
+  cssW = window.innerWidth;
+  cssH = window.innerHeight;
+  dpr  = Math.min(window.devicePixelRatio || 1, 2);
+  cv.width  = Math.round(cssW * dpr);
+  cv.height = Math.round(cssH * dpr);
+  // canvas is a replaced element: inset:0 alone doesn't stretch it,
+  // so pin its CSS size or it displays at backing-store size (off by dpr)
+  cv.style.width  = cssW + 'px';
+  cv.style.height = cssH + 'px';
+
+  cols = Math.max(16, Math.ceil(cssW / cellSize));
+  rows = Math.max(16, Math.ceil(cssH / cellSize));
+
+  const n = cols * rows;
+  cells   = new Uint8Array(n);
+  next    = new Uint8Array(n);
+  age     = new Uint8Array(n);
+  trail   = new Uint8Array(n);
+  trailSp = new Uint8Array(n);
+  foodMap = new Uint8Array(n);
+  bombMap = new Uint8Array(n);
+  foodActive = false; bombActive = false;
+
+  if (oldCells) {
+    const cr = Math.min(rows, oldRows), cc = Math.min(cols, oldCols);
+    for (let r = 0; r < cr; r++)
+      for (let c = 0; c < cc; c++)
+        cells[r * cols + c] = oldCells[r * oldCols + c];
+  }
+
+  off = document.createElement('canvas');
+  off.width = cols;
+  off.height = rows;
+  octx = off.getContext('2d');
+  img = octx.createImageData(cols, rows);
+  pix = new Uint32Array(img.data.buffer);
+
+  zoom = 1; panX = 0; panY = 0;
+  updateZoomChip();
+}
+
+function randomize() {
+  generation = 0;
+  trail.fill(0);
+  age.fill(0);
+  foodMap.fill(0);
+  bombMap.fill(0);
+  foodActive = false; bombActive = false;
+  let pop = 0;
+  if (speciesCount <= 1) {
+    for (let i = 0; i < cells.length; i++) {
+      const v = Math.random() < soupDensity ? 1 : 0;
+      cells[i] = v; pop += v;
+    }
+  } else {
+    // Voronoi territories (~2 blobs per faction) so armies form fronts
+    const sites = [];
+    for (let k = 0; k < speciesCount * 2; k++)
+      sites.push([Math.random() * cols, Math.random() * rows, (k % speciesCount) + 1]);
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const i = r * cols + c;
+        if (Math.random() >= soupDensity) { cells[i] = 0; continue; }
+        let bd = Infinity, bs = 1;
+        for (const [sx, sy, sp] of sites) {
+          let dx = Math.abs(c - sx); if (dx > cols / 2) dx = cols - dx;
+          let dy = Math.abs(r - sy); if (dy > rows / 2) dy = rows - dy;
+          const d = dx * dx + dy * dy;
+          if (d < bd) { bd = d; bs = sp; }
+        }
+        cells[i] = bs; pop++;
+      }
+    }
+  }
+  population = pop;
+}
+
+function clearAll() {
+  cells.fill(0); age.fill(0); trail.fill(0);
+  foodMap.fill(0); bombMap.fill(0);
+  foodActive = false; bombActive = false;
+  generation = 0; population = 0;
+}
+
+// ────────────────────────────────────────────
+// SIMULATION STEP
+// ────────────────────────────────────────────
+const _spc = new Int32Array(7); // per-neighborhood species tally (reused)
+
+function step() {
+  const g = cells, nx = next, R = rows, C = cols;
+  const B = birthMask, S = surviveMask, FB = foodBirthMask, FS = foodSurviveMask;
+  const doTrails = trailsOn, spc = _spc;
+  const fm = foodMap, bm = bombMap;
+  const useZones = foodActive || bombActive;
+  let pop = 0;
+  for (let r = 0; r < R; r++) {
+    const up = ((r - 1 + R) % R) * C;
+    const me = r * C;
+    const dn = ((r + 1) % R) * C;
+    for (let c = 0; c < C; c++) {
+      const l  = c === 0 ? C - 1 : c - 1;
+      const rt = c === C - 1 ? 0 : c + 1;
+      const n0 = g[up + l], n1 = g[up + c], n2 = g[up + rt],
+            n3 = g[me + l],                 n4 = g[me + rt],
+            n5 = g[dn + l], n6 = g[dn + c], n7 = g[dn + rt];
+      const total = (n0 !== 0) + (n1 !== 0) + (n2 !== 0) + (n3 !== 0)
+                  + (n4 !== 0) + (n5 !== 0) + (n6 !== 0) + (n7 !== 0);
+      const i = me + c;
+      const was = g[i];
+      let out = 0;
+      if (!(useZones && bm[i] > 60)) {           // gas kills everything
+        const fed = useZones && fm[i] > 50;
+        if (was) {
+          out = (((fed ? FS : S) >> total) & 1) ? was : 0;
+        } else if (((fed ? FB : B) >> total) & 1) {
+          // birth goes to the locally dominant species (random tiebreak)
+          if (n0) spc[n0]++; if (n1) spc[n1]++; if (n2) spc[n2]++; if (n3) spc[n3]++;
+          if (n4) spc[n4]++; if (n5) spc[n5]++; if (n6) spc[n6]++; if (n7) spc[n7]++;
+          let best = 0, bc = 0;
+          for (let s = 1; s <= 6; s++) {
+            const v = spc[s];
+            if (v > bc) { bc = v; best = s; }
+            else if (v === bc && v > 0 && Math.random() < 0.5) best = s;
+            spc[s] = 0;
+          }
+          out = best;
+        }
+      }
+      nx[i] = out;
+      if (out) {
+        pop++;
+        age[i] = out === was ? (age[i] < 63 ? age[i] + 1 : 63) : 0;
+      } else {
+        if (was && doTrails) { trail[i] = 255; trailSp[i] = was; }
+        age[i] = 0;
+      }
+    }
+  }
+  const t = cells; cells = next; next = t;
+  population = pop;
+  generation++;
+
+  // zones fade: food lingers, gas disperses faster
+  if (foodActive) {
+    let any = 0;
+    for (let i = 0; i < fm.length; i++) { const v = fm[i]; if (v) { const nv = v - 1; fm[i] = nv; any |= nv; } }
+    foodActive = any !== 0;
+  }
+  if (bombActive) {
+    let any = 0;
+    for (let i = 0; i < bm.length; i++) { const v = bm[i]; if (v) { const nv = v > 2 ? v - 3 : 0; bm[i] = nv; any |= nv; } }
+    bombActive = any !== 0;
+  }
+}
+
+// ────────────────────────────────────────────
+// RENDER
+// ────────────────────────────────────────────
+function render(nowSec) {
+  if (theme.rainbow) buildThemeLUT(nowSec);
+
+  const g = cells, tr = trail, ts = trailSp, ag = age, px = pix, bg = bgPacked;
+  const fm = foodMap, bm = bombMap;
+  const zones = foodActive || bombActive;
+  const N = g.length;
+  for (let i = 0; i < N; i++) {
+    let p;
+    const s = g[i];
+    if (s) {
+      p = aliveLUT[s * 64 + ag[i]];
+    } else {
+      const t = tr[i];
+      if (t) { p = trailLUT[ts[i] * 32 + (t >> 3)]; tr[i] = t > 3 ? t - 4 : 0; }
+      else p = bg;
+    }
+    if (zones) {
+      const f = fm[i], b = bm[i];
+      if (f | b) {
+        let r = p & 255, gg = (p >>> 8) & 255, bb = (p >>> 16) & 255;
+        if (f) { const a = f * 0.0020; r += (255 - r) * a; gg += (196 - gg) * a; bb += (40 - bb) * a; }   // golden food glow
+        if (b) { const a = b * 0.0028; r += (140 - r) * a; gg += (255 - gg) * a; bb += (50 - bb) * a; }   // toxic gas cloud
+        p = pack(r | 0, gg | 0, bb | 0);
+      }
+    }
+    px[i] = p;
+  }
+  octx.putImageData(img, 0, 0);
+
+  const scale = cellSize * zoom;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = theme.page;
+  ctx.fillRect(0, 0, cssW, cssH);
+  ctx.imageSmoothingEnabled = false;
+  ctx.translate(panX, panY);
+  ctx.scale(scale, scale);
+  ctx.drawImage(off, 0, 0);
+
+  // grid lines when zoomed in enough
+  if (gridLinesOn && scale >= 7) {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.strokeStyle = 'rgba(255,255,255,0.055)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    const x0 = ((panX % scale) + scale) % scale;
+    const y0 = ((panY % scale) + scale) % scale;
+    for (let x = x0; x <= cssW; x += scale) { ctx.moveTo(x, 0); ctx.lineTo(x, cssH); }
+    for (let y = y0; y <= cssH; y += scale) { ctx.moveTo(0, y); ctx.lineTo(cssW, y); }
+    ctx.stroke();
+  }
+
+  // stamp ghost preview
+  if (tool === 'stamp' && hoverOn) {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.translate(panX, panY);
+    ctx.scale(scale, scale);
+    ctx.fillStyle = SPECIES_ACC[activeSpecies] || theme.ac;
+    ctx.globalAlpha = 0.35 + 0.15 * Math.sin(nowSec * 5);
+    const ox = Math.round(hoverGX - stamp.w / 2);
+    const oy = Math.round(hoverGY - stamp.h / 2);
+    for (const [x, y] of stamp.cells) {
+      const gx = ((ox + x) % cols + cols) % cols;
+      const gy = ((oy + y) % rows + rows) % rows;
+      ctx.fillRect(gx, gy, 1, 1);
+    }
+    ctx.globalAlpha = 1;
+  }
+}
+
+// ────────────────────────────────────────────
+// MAIN LOOP
+// ────────────────────────────────────────────
+let last = performance.now(), acc = 0, fpsEMA = 60, hudTimer = 0;
+
+function frame(now) {
+  const dt = Math.min(0.1, (now - last) / 1000);
+  last = now;
+  if (dt > 0) fpsEMA += (1 / dt - fpsEMA) * 0.06;
+
+  if (running) {
+    acc += dt * sps;
+    let n = Math.floor(acc);
+    if (n > 12) { n = 12; acc = 0; } else acc -= n;
+    for (let i = 0; i < n; i++) step();
+  }
+
+  render(now / 1000);
+
+  hudTimer += dt;
+  if (hudTimer > 0.2) {
+    hudTimer = 0;
+    stGen.textContent = generation.toLocaleString();
+    stPop.textContent = population.toLocaleString();
+    stFps.textContent = Math.round(fpsEMA);
+    if (speciesBar.classList.contains('show')) updateSpeciesCounts();
+  }
+  requestAnimationFrame(frame);
+}
+
+// ────────────────────────────────────────────
+// PAINTING
+// ────────────────────────────────────────────
+function screenToGrid(sx, sy) {
+  const scale = cellSize * zoom;
+  return [(sx - panX) / scale, (sy - panY) / scale];
+}
+
+function paintDot(gx, gy, val) {
+  const r = brushR, r2 = r * r + r * 0.6;
+  for (let dy = -r; dy <= r; dy++) {
+    for (let dx = -r; dx <= r; dx++) {
+      if (dx * dx + dy * dy > r2) continue;
+      const x = ((gx + dx) % cols + cols) % cols;
+      const y = ((gy + dy) % rows + rows) % rows;
+      const i = y * cols + x;
+      cells[i] = val;
+      age[i] = 0;
+      if (!val) { trail[i] = 0; foodMap[i] = 0; bombMap[i] = 0; }
+    }
+  }
+}
+
+function paintSym(gx, gy, val) {
+  paintDot(gx, gy, val);
+  if (symmetry === 'x' || symmetry === 'xy') paintDot(cols - 1 - gx, gy, val);
+  if (symmetry === 'xy') {
+    paintDot(gx, rows - 1 - gy, val);
+    paintDot(cols - 1 - gx, rows - 1 - gy, val);
+  }
+}
+
+// splat `intensity` into a zone map with radial falloff
+function zoneDot(gx, gy, map, rad) {
+  const r2 = rad * rad + rad;
+  for (let dy = -rad; dy <= rad; dy++) {
+    for (let dx = -rad; dx <= rad; dx++) {
+      const d2 = dx * dx + dy * dy;
+      if (d2 > r2) continue;
+      const x = ((gx + dx) % cols + cols) % cols;
+      const y = ((gy + dy) % rows + rows) % rows;
+      const i = y * cols + x;
+      const v = 255 - (Math.sqrt(d2) / rad) * 150;
+      if (v > map[i]) map[i] = v;
+    }
+  }
+}
+
+function dropFood(gx, gy) {
+  zoneDot(gx, gy, foodMap, brushR + 3);
+  foodActive = true;
+}
+
+function dropBomb(gx, gy) {
+  // instant blast: everything in the crater dies (leaving trails)…
+  const blast = brushR * 2 + 4;
+  const b2 = blast * blast + blast;
+  for (let dy = -blast; dy <= blast; dy++) {
+    for (let dx = -blast; dx <= blast; dx++) {
+      if (dx * dx + dy * dy > b2) continue;
+      const x = ((gx + dx) % cols + cols) % cols;
+      const y = ((gy + dy) % rows + rows) % rows;
+      const i = y * cols + x;
+      if (cells[i]) {
+        if (trailsOn) { trail[i] = 255; trailSp[i] = cells[i]; }
+        cells[i] = 0;
+      }
+      age[i] = 0;
+    }
+  }
+  // …then a toxic cloud lingers and keeps killing while it disperses
+  zoneDot(gx, gy, bombMap, brushR + 4);
+  bombActive = true;
+  buzz(14);
+}
+
+function applyToolAt(gx, gy) {
+  if (tool === 'draw')       paintSym(gx, gy, activeSpecies);
+  else if (tool === 'erase') paintSym(gx, gy, 0);
+  else if (tool === 'food')  dropFood(gx, gy);
+  else if (tool === 'bomb')  dropBomb(gx, gy);
+}
+
+let lastPaint = null;
+function paintLine(sx, sy) {
+  const [fx, fy] = screenToGrid(sx, sy);
+  const gx = Math.floor(fx), gy = Math.floor(fy);
+  if (lastPaint) {
+    const [px0, py0] = lastPaint;
+    const steps = Math.max(Math.abs(gx - px0), Math.abs(gy - py0), 1);
+    for (let i = 1; i <= steps; i++) {
+      applyToolAt(Math.round(px0 + (gx - px0) * i / steps),
+                  Math.round(py0 + (gy - py0) * i / steps));
+    }
+  } else {
+    applyToolAt(gx, gy);
+  }
+  lastPaint = [gx, gy];
+}
+
+function placeStamp(sx, sy) {
+  const [fx, fy] = screenToGrid(sx, sy);
+  const ox = Math.round(fx - stamp.w / 2);
+  const oy = Math.round(fy - stamp.h / 2);
+  for (const [x, y] of stamp.cells) {
+    const gx = ((ox + x) % cols + cols) % cols;
+    const gy = ((oy + y) % rows + rows) % rows;
+    const i = gy * cols + gx;
+    cells[i] = activeSpecies;
+    age[i] = 0;
+  }
+  buzz(8);
+}
+
+// ────────────────────────────────────────────
+// PAN / ZOOM
+// ────────────────────────────────────────────
+function clampPan() {
+  const gw = cols * cellSize * zoom, gh = rows * cellSize * zoom;
+  panX = Math.min(0, Math.max(cssW - gw, panX));
+  panY = Math.min(0, Math.max(cssH - gh, panY));
+}
+
+function zoomAt(sx, sy, factor) {
+  const z2 = Math.min(14, Math.max(1, zoom * factor));
+  const s1 = cellSize * zoom, s2 = cellSize * z2;
+  panX = sx - (sx - panX) / s1 * s2;
+  panY = sy - (sy - panY) / s1 * s2;
+  zoom = z2;
+  clampPan();
+  updateZoomChip();
+}
+
+function resetView() {
+  zoom = 1; panX = 0; panY = 0;
+  updateZoomChip();
+}
+
+function updateZoomChip() {
+  const show = zoom > 1.01;
+  zoomchip.classList.toggle('show', show);
+  if (show) zoomchip.textContent = '⟲ ' + zoom.toFixed(1) + '×';
+}
+
+// ────────────────────────────────────────────
+// INPUT — pointers (mouse + touch unified)
+// ────────────────────────────────────────────
+const pointers = new Map();
+let painting = false, panning = false, pinch = null, spaceHeld = false;
+
+cv.addEventListener('pointerdown', e => {
+  cv.setPointerCapture(e.pointerId);
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+  if (pointers.size === 2) {
+    // second finger → pinch gesture, cancel any paint
+    painting = false; panning = false; lastPaint = null;
+    const pts = [...pointers.values()];
+    pinch = {
+      zoom0: zoom, panX0: panX, panY0: panY,
+      d0: Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y) || 1,
+      mx0: (pts[0].x + pts[1].x) / 2,
+      my0: (pts[0].y + pts[1].y) / 2,
+    };
+    return;
+  }
+  if (pointers.size > 2) return;
+
+  const wantPan = tool === 'pan' || spaceHeld || e.button === 1 || e.button === 2;
+  if (wantPan) { panning = true; return; }
+  if (tool === 'stamp') { placeStamp(e.clientX, e.clientY); return; }
+  painting = true;
+  lastPaint = null;
+  paintLine(e.clientX, e.clientY);
+});
+
+cv.addEventListener('pointermove', e => {
+  const prev = pointers.get(e.pointerId);
+  if (prev === undefined) {
+    // hover only (desktop, no button held)
+    const [fx, fy] = screenToGrid(e.clientX, e.clientY);
+    hoverGX = fx; hoverGY = fy; hoverOn = true;
+    return;
+  }
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+  if (pinch && pointers.size >= 2) {
+    const pts = [...pointers.values()];
+    const d = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y) || 1;
+    const mx = (pts[0].x + pts[1].x) / 2, my = (pts[0].y + pts[1].y) / 2;
+    const z2 = Math.min(14, Math.max(1, pinch.zoom0 * d / pinch.d0));
+    const s1 = cellSize * pinch.zoom0, s2 = cellSize * z2;
+    panX = mx - (pinch.mx0 - pinch.panX0) / s1 * s2;
+    panY = my - (pinch.my0 - pinch.panY0) / s1 * s2;
+    zoom = z2;
+    clampPan();
+    updateZoomChip();
+    return;
+  }
+  if (panning) {
+    panX += e.clientX - prev.x;
+    panY += e.clientY - prev.y;
+    clampPan();
+    return;
+  }
+  if (painting) {
+    paintLine(e.clientX, e.clientY);
+  }
+  const [fx, fy] = screenToGrid(e.clientX, e.clientY);
+  hoverGX = fx; hoverGY = fy; hoverOn = true;
+});
+
+function endPointer(e) {
+  pointers.delete(e.pointerId);
+  if (pointers.size < 2) pinch = null;
+  if (pointers.size === 0) { painting = false; panning = false; lastPaint = null; }
+}
+cv.addEventListener('pointerup', endPointer);
+cv.addEventListener('pointercancel', endPointer);
+cv.addEventListener('pointerleave', () => { hoverOn = false; });
+cv.addEventListener('contextmenu', e => e.preventDefault());
+
+cv.addEventListener('wheel', e => {
+  e.preventDefault();
+  zoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.13 : 1 / 1.13);
+}, { passive: false });
+
+// ────────────────────────────────────────────
+// KEYBOARD (desktop)
+// ────────────────────────────────────────────
+window.addEventListener('keydown', e => {
+  if (e.code === 'Space') {
+    spaceHeld = true;
+    if (!e.repeat && e.target === document.body) { e.preventDefault(); togglePlay(); }
+    return;
+  }
+  if (e.repeat) return;
+  switch (e.code) {
+    case 'KeyS': doStep(); break;
+    case 'KeyD': randomize(); toast('fresh soup 🎲'); break;
+    case 'KeyC': clearAll(); toast('cleared'); break;
+    case 'KeyR': rotateStamp(); break;
+    case 'KeyB': setTool('draw'); break;
+    case 'KeyE': setTool('erase'); break;
+    case 'KeyP': setTool('pan'); break;
+    case 'KeyF': setTool('food'); break;
+    case 'KeyG': setTool('bomb'); break;
+    case 'Digit1': case 'Digit2': case 'Digit3':
+    case 'Digit4': case 'Digit5': case 'Digit6':
+      setSpecies(+e.code.slice(-1));
+      if (tool !== 'draw' && tool !== 'stamp') setTool('draw');
+      break;
+    case 'KeyT': {
+      const i = (THEMES.indexOf(theme) + 1) % THEMES.length;
+      applyTheme(THEMES[i]);
+      drawPreviews();
+      toast(THEMES[i].name);
+      break;
+    }
+    case 'BracketLeft':
+      brushR = Math.max(0, brushR - 1); brushSlider.value = brushR; syncBrushLabel(); break;
+    case 'BracketRight':
+      brushR = Math.min(6, brushR + 1); brushSlider.value = brushR; syncBrushLabel(); break;
+  }
+});
+window.addEventListener('keyup', e => { if (e.code === 'Space') spaceHeld = false; });
+
+// ────────────────────────────────────────────
+// UI WIRING
+// ────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const stGen = $('st-gen'), stPop = $('st-pop'), stFps = $('st-fps');
+const zoomchip = $('zoomchip');
+const toastEl = $('toast');
+const brushSlider = $('brush');
+
+const ICONS = {
+  play:  '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>',
+  pause: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>',
+  step:  '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 5h3v14H5zm5 2 8 5-8 5z"/></svg>',
+  dice:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="3.5"/><circle cx="9" cy="9" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="9" r="1.4" fill="currentColor" stroke="none"/><circle cx="9" cy="15" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="15" r="1.4" fill="currentColor" stroke="none"/></svg>',
+  clear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m3 0-1 13a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1L6 7"/></svg>',
+  draw:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.8 2.8 0 0 1 4 4L8 20l-5 1 1-5Z"/></svg>',
+  erase: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 20-4.5-4.5a2 2 0 0 1 0-2.8l8.2-8.2a2 2 0 0 1 2.8 0l5 5a2 2 0 0 1 0 2.8L12 20H8Z"/><path d="M6 12.5 12.5 19"/></svg>',
+  stamp: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1" fill="currentColor"/></svg>',
+  pan:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 12h20"/><path d="m9 5 3-3 3 3M9 19l3 3 3-3M5 9 2 12l3 3M19 9l3 3-3 3"/></svg>',
+  food:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8c-3.2-2-7-.4-7 3.6C5 16 8 20.5 12 20.5s7-4.5 7-8.9c0-4-3.8-5.6-7-3.6Z"/><path d="M12 8c0-2.2 1.2-3.6 3-4.5"/></svg>',
+  bomb:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.5" cy="14" r="6.5"/><path d="m15 9.5 3.5-3.5"/><path d="M20 2.5v3M18.5 4h3"/></svg>',
+  theme: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21a9 9 0 1 1 9-9c0 2-1.5 3-3 3h-2a2.5 2.5 0 0 0-2 4c.5.8 0 2-2 2Z"/><circle cx="7.5" cy="11" r="1.2" fill="currentColor" stroke="none"/><circle cx="11" cy="7" r="1.2" fill="currentColor" stroke="none"/><circle cx="16" cy="8.5" r="1.2" fill="currentColor" stroke="none"/></svg>',
+  gear:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 8h10M18 8h2M4 16h2M10 16h10"/><circle cx="16" cy="8" r="2.2"/><circle cx="8" cy="16" r="2.2"/></svg>',
+};
+
+$('b-play').innerHTML  = ICONS.pause;
+$('b-step').innerHTML  = ICONS.step;
+$('b-dice').innerHTML  = ICONS.dice;
+$('b-clear').innerHTML = ICONS.clear;
+$('b-draw').innerHTML  = ICONS.draw;
+$('b-erase').innerHTML = ICONS.erase;
+$('b-stamp').innerHTML = ICONS.stamp;
+$('b-pan').innerHTML   = ICONS.pan;
+$('b-food').innerHTML  = ICONS.food;
+$('b-bomb').innerHTML  = ICONS.bomb;
+$('b-theme').innerHTML = ICONS.theme;
+$('b-settings').innerHTML = ICONS.gear;
+
+function buzz(ms) { if (navigator.vibrate) navigator.vibrate(ms); }
+
+let toastTimer = null;
+function toast(html, ms = 2200) {
+  toastEl.innerHTML = html;
+  toastEl.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('show'), ms);
+}
+
+function togglePlay() {
+  running = !running;
+  acc = 0;
+  $('b-play').innerHTML = running ? ICONS.pause : ICONS.play;
+  $('b-play').classList.toggle('on', !running);
+  buzz(6);
+}
+function doStep() {
+  if (running) togglePlay();
+  step();
+}
+
+$('b-play').addEventListener('click', togglePlay);
+$('b-step').addEventListener('click', doStep);
+$('b-dice').addEventListener('click', () => { randomize(); buzz(8); });
+$('b-clear').addEventListener('click', () => { clearAll(); buzz(8); });
+
+const TOOL_BTNS = {
+  draw: $('b-draw'), erase: $('b-erase'), stamp: $('b-stamp'),
+  pan: $('b-pan'), food: $('b-food'), bomb: $('b-bomb'),
+};
+function setTool(t) {
+  tool = t;
+  for (const k in TOOL_BTNS) TOOL_BTNS[k].classList.toggle('on', k === t);
+  cv.style.cursor = t === 'pan' ? 'grab' : 'crosshair';
+  refreshSpeciesBar();
+  buzz(5);
+}
+$('b-draw').addEventListener('click', () => { setTool('draw'); closePanels(); });
+$('b-erase').addEventListener('click', () => { setTool('erase'); closePanels(); });
+$('b-pan').addEventListener('click', () => { setTool('pan'); closePanels(); });
+$('b-food').addEventListener('click', () => {
+  setTool('food'); closePanels();
+  toast('<b>FOOD</b> — paint golden zones that supercharge growth', 1800);
+});
+$('b-bomb').addEventListener('click', () => {
+  setTool('bomb'); closePanels();
+  toast('<b>GAS BOMB</b> — tap to nuke, the cloud lingers ☠', 1800);
+});
+$('b-stamp').addEventListener('click', () => { setTool('stamp'); openPanel('panel-patterns'); });
+$('b-theme').addEventListener('click', () => openPanel('panel-themes'));
+$('b-settings').addEventListener('click', () => openPanel('panel-settings'));
+
+// panels — only one open at a time; tapping same button toggles
+let openPanelId = null;
+function openPanel(id) {
+  if (openPanelId === id) { closePanels(); return; }
+  closePanels();
+  $(id).classList.add('open');
+  openPanelId = id;
+  refreshSpeciesBar();
+}
+function closePanels() {
+  document.querySelectorAll('.panel.open').forEach(p => p.classList.remove('open'));
+  openPanelId = null;
+  refreshSpeciesBar();
+}
+cv.addEventListener('pointerdown', closePanels);
+
+// ── species bar (faction picker + live counts) ──
+const speciesBar = $('speciesbar');
+const spBtns = [...speciesBar.querySelectorAll('.sp')];
+for (const b of spBtns) {
+  const s = +b.dataset.s;
+  const color = SPECIES_ACC[s] || 'var(--ac)';
+  b.style.color = color;
+  b.querySelector('.dot').style.background = color;
+  b.addEventListener('click', () => { setSpecies(s); buzz(5); });
+}
+function setSpecies(s) {
+  activeSpecies = s;
+  for (const b of spBtns) b.classList.toggle('on', +b.dataset.s === s);
+}
+function refreshSpeciesBar() {
+  speciesBar.classList.toggle('show', (tool === 'draw' || tool === 'stamp') && !openPanelId);
+}
+const _counts = new Int32Array(7);
+function updateSpeciesCounts() {
+  _counts.fill(0);
+  for (let i = 0; i < cells.length; i++) _counts[cells[i]]++;
+  for (const b of spBtns) {
+    const c = _counts[+b.dataset.s];
+    b.querySelector('.ct').textContent = c >= 1000 ? (c / 1000).toFixed(1) + 'k' : c;
+  }
+}
+
+zoomchip.addEventListener('click', resetView);
+$('btn-resetview').addEventListener('click', () => { resetView(); toast('view reset'); });
+
+// ── patterns panel ──
+const patGrid = $('pat-grid');
+PATTERNS.forEach((p, i) => {
+  const el = document.createElement('div');
+  el.className = 'pat' + (i === 0 ? ' on' : '');
+  const pc = document.createElement('canvas');
+  pc.width = 56; pc.height = 42;
+  el.appendChild(pc);
+  const nm = document.createElement('div');
+  nm.className = 'nm';
+  nm.textContent = p.name;
+  el.appendChild(nm);
+  el.addEventListener('click', () => {
+    stampBase = p; stampRot = 0; stamp = p;
+    patGrid.querySelectorAll('.pat').forEach(q => q.classList.remove('on'));
+    el.classList.add('on');
+    setTool('stamp');
+    toast('tap the grid to stamp <b>' + p.name + '</b>');
+  });
+  patGrid.appendChild(el);
+  p._preview = pc;
+});
+function drawPreviews() {
+  for (const p of PATTERNS) {
+    const pc = p._preview, x2 = pc.getContext('2d');
+    x2.fillStyle = '#0a0c18';
+    x2.fillRect(0, 0, pc.width, pc.height);
+    const s = Math.min(pc.width / (p.w + 2), pc.height / (p.h + 2));
+    const ox = (pc.width - p.w * s) / 2, oy = (pc.height - p.h * s) / 2;
+    x2.fillStyle = theme.ac;
+    for (const [x, y] of p.cells)
+      x2.fillRect(ox + x * s, oy + y * s, Math.max(1, s - 0.6), Math.max(1, s - 0.6));
+  }
+}
+function rotateStamp() {
+  stampRot = (stampRot + 1) % 4;
+  stamp = stampBase;
+  for (let i = 0; i < stampRot; i++) stamp = rotatePattern(stamp);
+  if (tool === 'stamp') toast('rotated ' + stampRot * 90 + '°', 900);
+}
+$('btn-rotate').addEventListener('click', rotateStamp);
+
+// ── themes panel ──
+const themeList = $('theme-list');
+for (const th of THEMES) {
+  const row = document.createElement('div');
+  row.className = 'theme-row' + (th === theme ? ' on' : '');
+  row.dataset.id = th.id;
+  const sw = document.createElement('div');
+  sw.className = 'sw';
+  if (th.rainbow) {
+    sw.style.background = 'linear-gradient(90deg,#ff0040,#ff9d00,#eaff00,#00ff90,#00cfff,#7a5cff,#ff40d9)';
+  } else {
+    const c = i => `rgb(${th.stops[i][0]},${th.stops[i][1]},${th.stops[i][2]})`;
+    sw.style.background = `linear-gradient(90deg,${c(1)},${c(2)},${c(3)})`;
+  }
+  const nm = document.createElement('div');
+  nm.className = 'nm';
+  nm.textContent = th.name;
+  row.appendChild(sw); row.appendChild(nm);
+  row.addEventListener('click', () => { applyTheme(th); drawPreviews(); buzz(6); });
+  themeList.appendChild(row);
+}
+
+// ── settings panel ──
+const speedSlider = $('speed'), speedVal = $('speed-val');
+function syncSpeed() {
+  sps = SPEED_STOPS[+speedSlider.value];
+  speedVal.textContent = sps > 60 ? 'TURBO' : sps + ' gen/s';
+}
+speedSlider.addEventListener('input', syncSpeed);
+syncSpeed();
+
+const rulesSel = $('rules');
+RULES.forEach((r, i) => {
+  const o = document.createElement('option');
+  o.value = i; o.textContent = r.name;
+  rulesSel.appendChild(o);
+});
+rulesSel.addEventListener('change', () => {
+  setRule(RULES[+rulesSel.value]);
+  toast(rule.name);
+});
+
+const densSlider = $('density'), densVal = $('dens-val');
+densSlider.addEventListener('input', () => {
+  soupDensity = +densSlider.value / 100;
+  densVal.textContent = densSlider.value + '%';
+});
+
+const brushVal = $('brush-val');
+function syncBrushLabel() { brushVal.textContent = String(brushR * 2 + 1); }
+brushSlider.addEventListener('input', () => { brushR = +brushSlider.value; syncBrushLabel(); });
+syncBrushLabel();
+
+function wireSeg(id, fn) {
+  const seg = $(id);
+  seg.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+    seg.querySelectorAll('button').forEach(q => q.classList.remove('on'));
+    b.classList.add('on');
+    fn(b.dataset.v);
+  }));
+}
+wireSeg('sym-seg', v => { symmetry = v; });
+wireSeg('spcount-seg', v => {
+  speciesCount = +v;
+  toast(speciesCount > 1
+    ? 'dice now seeds a <b>' + speciesCount + '-faction battle</b>'
+    : 'dice now seeds classic single-color soup');
+});
+wireSeg('cell-seg', v => {
+  cellSize = +v;
+  setupGrid(true);
+  toast(cols + ' × ' + rows + ' cells');
+});
+
+function wireToggle(id, fn) {
+  const el = $(id);
+  el.addEventListener('click', () => {
+    el.classList.toggle('on');
+    fn(el.classList.contains('on'));
+  });
+}
+wireToggle('tog-trails', v => { trailsOn = v; if (!v) trail.fill(0); });
+wireToggle('tog-grid', v => { gridLinesOn = v; });
+
+// ────────────────────────────────────────────
+// RESIZE / BOOT
+// ────────────────────────────────────────────
+let resizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => setupGrid(true), 150);
+});
+
+setupGrid(false);
+applyTheme(THEMES[0]);
+drawPreviews();
+randomize();
+refreshSpeciesBar();
+
+const isTouch = matchMedia('(pointer: coarse)').matches;
+toast(isTouch
+  ? '<b>3 factions</b> are at war — draw with your finger, drop <b>food</b> 🍏 or <b>gas bombs</b> ☠ from the toolbar'
+  : '<b>3 factions</b> at war — drag to draw · <b>F</b> food · <b>G</b> gas bomb · <b>1-6</b> faction · <b>space</b> pause', 6000);
+
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
